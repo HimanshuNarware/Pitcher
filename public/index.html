@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Auto Cold Email Sender | Fullstack Application</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col font-sans antialiased">
+
+  <!-- Top Navbar -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="h-10 w-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-blue-500 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
+          <i data-lucide="send" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <div class="flex items-center space-x-2">
+            <h1 class="text-lg font-bold text-slate-900 tracking-tight">Auto Cold Email Sender</h1>
+            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
+              Fullstack Role
+            </span>
+          </div>
+          <p class="text-xs text-slate-500">Automated job application outreach engine with anti-spam delays</p>
+        </div>
+      </div>
+
+      <!-- Right Header Actions -->
+      <div class="flex items-center space-x-3">
+        <div id="smtpStatusBadge" class="hidden sm:flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">
+          <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+          <span id="smtpStatusText">Checking SMTP...</span>
+        </div>
+        <a href="/flowchart.html" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold transition border border-blue-200 shadow-sm">
+          <i data-lucide="git-fork" class="w-4 h-4 text-blue-600"></i>
+          <span>Flowchart</span>
+        </a>
+        <button id="openSettingsBtn" class="flex items-center space-x-2 px-3.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition border border-slate-200 shadow-sm">
+          <i data-lucide="settings" class="w-4 h-4 text-slate-500"></i>
+          <span>Gmail Settings</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Container -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full space-y-8">
+
+    <!-- Step Progress Bar -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div class="flex items-center p-3.5 bg-white rounded-xl border border-slate-200 shadow-sm space-x-3">
+        <div class="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-sm">1</div>
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Step 1</p>
+          <p class="text-sm font-semibold text-slate-800">Upload CSV or Excel</p>
+        </div>
+      </div>
+      <div class="flex items-center p-3.5 bg-white rounded-xl border border-slate-200 shadow-sm space-x-3">
+        <div class="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center font-bold text-sm">2</div>
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Step 2</p>
+          <p class="text-sm font-semibold text-slate-800">Review Email Template</p>
+        </div>
+      </div>
+      <div class="flex items-center p-3.5 bg-white rounded-xl border border-slate-200 shadow-sm space-x-3">
+        <div class="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center font-bold text-sm">3</div>
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Step 3</p>
+          <p class="text-sm font-semibold text-slate-800">Send & Track Live</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Grid: Left is File & Setup, Right is Template & Preview -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+
+      <!-- LEFT COLUMN: Step 1 (Upload & Mapping) (5 cols) -->
+      <section class="lg:col-span-5 space-y-6">
+        
+        <!-- File Upload Card -->
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-5">
+          <div class="flex items-center justify-between">
+            <h2 class="text-base font-bold text-slate-900 flex items-center space-x-2">
+              <i data-lucide="file-spreadsheet" class="w-5 h-5 text-blue-600"></i>
+              <span>Recipients Spreadsheet</span>
+            </h2>
+            <!-- <div class="flex items-center space-x-2 text-xs">
+              <a href="/api/sample-csv" download class="text-blue-600 hover:text-blue-700 hover:underline flex items-center space-x-1">
+                <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                <span>Sample CSV</span>
+              </a>
+              <span class="text-slate-300">|</span>
+              <a href="/api/sample-xlsx" download class="text-blue-600 hover:text-blue-700 hover:underline flex items-center space-x-1">
+                <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                <span>Sample XLSX</span>
+              </a>
+            </div> -->
+          </div>
+
+          <!-- Drag & Drop Zone -->
+          <div id="dropZone" class="border-2 border-dashed border-slate-300 hover:border-blue-500 bg-slate-50/70 hover:bg-blue-50/30 rounded-xl p-6 text-center cursor-pointer transition flex flex-col items-center justify-center space-y-3">
+            <input type="file" id="fileInput" accept=".csv, .xlsx, .xls" class="hidden">
+            <div class="w-12 h-12 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">
+              <i data-lucide="upload-cloud" class="w-6 h-6"></i>
+            </div>
+            <div>
+              <p class="text-sm font-semibold text-slate-800">
+                Click to browse or drag & drop file
+              </p>
+              <p class="text-xs text-slate-500 mt-1">Supports CSV, XLSX, or XLS spreadsheets</p>
+            </div>
+            <div class="inline-flex items-center space-x-1 text-xs text-slate-500 bg-white px-2.5 py-1 rounded-md border border-slate-200">
+              <i data-lucide="info" class="w-3.5 h-3.5 text-slate-400"></i>
+              <span>Auto-detects email column automatically</span>
+            </div>
+          </div>
+
+          <!-- Uploaded File Info Panel (Hidden initially) -->
+          <div id="fileInfoPanel" class="hidden space-y-4 pt-2 border-t border-slate-100">
+            <div class="flex items-center justify-between bg-slate-50 p-3 rounded-lg border border-slate-200">
+              <div class="flex items-center space-x-2.5 overflow-hidden">
+                <i data-lucide="file-check" class="w-5 h-5 text-emerald-600 shrink-0"></i>
+                <div class="truncate">
+                  <p id="uploadedFileName" class="text-sm font-medium text-slate-900 truncate">contacts.csv</p>
+                  <p id="uploadedFileStats" class="text-xs text-slate-500">0 rows found</p>
+                </div>
+              </div>
+              <button id="removeFileBtn" class="text-slate-400 hover:text-red-500 p-1 transition" title="Remove file">
+                <i data-lucide="x" class="w-4 h-4"></i>
+              </button>
+            </div>
+
+            <!-- Column Selection Mapping -->
+            <div class="space-y-1.5">
+              <label class="block text-xs font-semibold uppercase text-slate-500 tracking-wider">
+                Select Recipient Email Column
+              </label>
+              <select id="emailColumnSelect" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                <!-- Dynamically populated -->
+              </select>
+              <p class="text-xs text-slate-500">Choose which header contains the target email addresses.</p>
+            </div>
+
+            <!-- Data Preview Summary -->
+            <div class="grid grid-cols-2 gap-3 pt-1">
+              <div class="bg-blue-50/60 border border-blue-100 rounded-lg p-3">
+                <p class="text-xs text-blue-600 font-medium">Total Rows</p>
+                <p id="totalRowsCount" class="text-xl font-bold text-blue-900 mt-0.5">0</p>
+              </div>
+              <div class="bg-emerald-50/60 border border-emerald-100 rounded-lg p-3">
+                <p class="text-xs text-emerald-600 font-medium">Valid Emails</p>
+                <p id="validEmailsCount" class="text-xl font-bold text-emerald-900 mt-0.5">0</p>
+              </div>
+            </div>
+
+            <!-- Table Preview Dropdown/Collapsible -->
+            <details class="group border border-slate-200 rounded-lg overflow-hidden">
+              <summary class="flex items-center justify-between p-3 bg-slate-50 hover:bg-slate-100 cursor-pointer text-xs font-semibold text-slate-700 select-none">
+                <span class="flex items-center space-x-2">
+                  <i data-lucide="table" class="w-4 h-4 text-slate-500"></i>
+                  <span>Preview Data (First 5 Rows)</span>
+                </span>
+                <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400 group-open:rotate-180 transition-transform"></i>
+              </summary>
+              <div class="p-2 overflow-x-auto max-h-56">
+                <table id="previewTable" class="w-full text-left text-xs border-collapse">
+                  <!-- Populated by JS -->
+                </table>
+              </div>
+            </details>
+          </div>
+        </div>
+
+        <!-- Sending Rules & Safety Configuration -->
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
+          <h2 class="text-base font-bold text-slate-900 flex items-center space-x-2">
+            <i data-lucide="shield-check" class="w-5 h-5 text-emerald-600"></i>
+            <span>Sending Safety & Controls</span>
+          </h2>
+
+          <div class="space-y-4">
+            <!-- Delay Selector -->
+            <div>
+              <div class="flex items-center justify-between mb-1">
+                <label for="delaySeconds" class="text-xs font-semibold text-slate-700">
+                  Delay Between Outgoing Emails
+                </label>
+                <span id="delayBadge" class="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">3 seconds</span>
+              </div>
+              <input type="range" id="delaySeconds" min="1" max="15" value="3" step="1" class="w-full accent-blue-600 cursor-pointer">
+              <p class="text-xs text-slate-500 mt-1">Recommended: 3–5 seconds to prevent Gmail SMTP rate limiting or spam flags.</p>
+            </div>
+
+            <!-- Skip Duplicates -->
+            <div class="flex items-start space-x-3 pt-2">
+              <input type="checkbox" id="skipDuplicatesCheck" checked class="mt-0.5 h-4 w-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500">
+              <div>
+                <label for="skipDuplicatesCheck" class="text-xs font-semibold text-slate-800 cursor-pointer">
+                  Skip Duplicate Emails
+                </label>
+                <p class="text-xs text-slate-500">Ensures you don't accidentally send multiple emails to the same recruiter address.</p>
+              </div>
+            </div>
+
+            <!-- Simulation / Dry Run Mode -->
+            <!-- <div class="flex items-start space-x-3 pt-2 border-t border-slate-100">
+              <input type="checkbox" id="dryRunCheck" class="mt-0.5 h-4 w-4 text-amber-600 rounded border-slate-300 focus:ring-amber-500">
+              <div>
+                <label for="dryRunCheck" class="text-xs font-semibold text-slate-800 cursor-pointer flex items-center space-x-1.5">
+                  <span class="text-amber-700 font-bold">Simulation Mode (Dry Run)</span>
+                  <span class="px-1.5 py-0.2 bg-amber-100 text-amber-800 rounded text-[10px] uppercase font-bold">Safe Test</span>
+                </label>
+                <p class="text-xs text-slate-500">Test the entire flow, delays, and reporting without sending real emails or needing Gmail credentials.</p>
+              </div>
+            </div> -->
+          </div>
+        </div>
+
+      </section>
+
+      <!-- RIGHT COLUMN: Step 2 & 3 (Template, Preview & Action) (7 cols) -->
+      <section class="lg:col-span-7 space-y-6">
+
+        <!-- Email Content Card -->
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-5">
+          <div class="flex items-center justify-between">
+            <h2 class="text-base font-bold text-slate-900 flex items-center space-x-2">
+              <i data-lucide="mail" class="w-5 h-5 text-indigo-600"></i>
+              <span>Email Content & Preview</span>
+            </h2>
+            <!-- View Mode Switch: Edit vs Preview -->
+            <div class="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs">
+              <button id="tabEditBtn" class="px-3 py-1.5 rounded-md font-semibold bg-white text-slate-900 shadow-sm transition">
+                Edit
+              </button>
+              <button id="tabPreviewBtn" class="px-3 py-1.5 rounded-md font-semibold text-slate-600 hover:text-slate-900 transition">
+                HTML Preview
+              </button>
+            </div>
+          </div>
+
+          <!-- Subject Input -->
+          <div class="space-y-1.5">
+            <label for="emailSubject" class="block text-xs font-semibold uppercase text-slate-500 tracking-wider">
+              Subject Line
+            </label>
+            <input type="text" id="emailSubject" value="Applying for the Fullstack Developer role" class="w-full bg-white border border-slate-300 rounded-lg px-3.5 py-2.5 text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+          </div>
+
+          <!-- Edit Mode: Body Textarea -->
+          <div id="editModeContainer" class="space-y-1.5">
+            <div class="flex items-center justify-between">
+              <label for="emailBody" class="block text-xs font-semibold uppercase text-slate-500 tracking-wider">
+                Email Body
+              </label>
+              <span class="text-xs text-slate-400">Plain text with auto-hyperlinking</span>
+            </div>
+            <textarea id="emailBody" rows="12" class="w-full bg-white border border-slate-300 rounded-lg p-3.5 text-sm font-mono leading-relaxed text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-y">Dear HR,
+
+I am writing to express my interest in the Fullstack Developer position at your company.
+
+I am a Fullstack Developer with 1.6 years of experience in building scalable applications. I have pasted my resume and profile for your review, as I believe my skills and background would be a strong fit for your team.
+
+Thank you for your time and consideration. I look forward to hearing from you.
+
+Best regards,
+
+Himanshu Narware
+
+Resume: https://shorturl.at/jucRH
+Github: https://github.com/HimanshuNarware
+Portfolio: https://himanshunarwaresde-one.vercel.app/
+LinkedIn: https://www.linkedin.com/in/himanshunarware/</textarea>
+            <div class="text-xs text-slate-500 flex items-center space-x-1">
+              <i data-lucide="sparkles" class="w-3.5 h-3.5 text-amber-500"></i>
+              <span>Pro-tip: You can use spreadsheet tags like <code class="bg-slate-100 px-1 py-0.5 rounded text-blue-600 font-mono">&#123;&#123;Company&#125;&#125;</code> or <code class="bg-slate-100 px-1 py-0.5 rounded text-blue-600 font-mono">&#123;&#123;HR Name&#125;&#125;</code> for instant personalization.</span>
+            </div>
+          </div>
+
+          <!-- Preview Mode: Formatted HTML Rendering -->
+          <div id="previewModeContainer" class="hidden space-y-2">
+            <div class="bg-slate-50 border border-slate-200 rounded-xl p-5 min-h-[300px]">
+              <div class="border-b border-slate-200 pb-3 mb-4 space-y-1">
+                <p class="text-xs text-slate-500"><span class="font-semibold text-slate-700">Subject:</span> <span id="renderedSubjectPreview" class="text-slate-900 font-medium"></span></p>
+                <p class="text-xs text-slate-500"><span class="font-semibold text-slate-700">From:</span> <span id="renderedSenderPreview" class="text-slate-900">Your Gmail</span></p>
+              </div>
+              <div id="renderedHtmlBody" class="prose prose-sm max-w-none text-slate-800">
+                <!-- Injected via JS -->
+              </div>
+            </div>
+          </div>
+
+          <!-- Action Bar: Send Button -->
+          <div class="pt-4 border-t border-slate-100 flex items-center justify-between">
+            <div class="text-xs text-slate-500">
+              <span id="readyToSendCount">0</span> recipients ready
+            </div>
+            <button id="startSendBtn" disabled class="px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-sm font-semibold transition shadow-md shadow-blue-600/20 flex items-center space-x-2">
+              <i data-lucide="send" class="w-4 h-4"></i>
+              <span>Start Cold Emailing</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Live Progress & Execution Monitor (Visible while sending or after) -->
+        <div id="progressSection" class="hidden bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-5">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+              <div id="jobStatusDot" class="w-3 h-3 rounded-full bg-blue-500 animate-ping"></div>
+              <h2 id="jobStatusHeading" class="text-base font-bold text-slate-900">Sending in progress...</h2>
+            </div>
+            <div class="flex items-center space-x-2">
+              <button id="stopJobBtn" class="px-3.5 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 text-xs font-semibold transition flex items-center space-x-1.5">
+                <i data-lucide="square" class="w-3.5 h-3.5 fill-current"></i>
+                <span>Stop Campaign</span>
+              </button>
+              <button id="downloadReportBtn" disabled class="px-3.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 disabled:opacity-50 disabled:cursor-not-allowed text-slate-700 border border-slate-200 text-xs font-semibold transition flex items-center space-x-1.5">
+                <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                <span>Export Report</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Progress Bar -->
+          <div class="space-y-1.5">
+            <div class="flex justify-between text-xs font-semibold">
+              <span id="progressPercentText" class="text-blue-600">0% Completed</span>
+              <span id="progressFractionText" class="text-slate-500">0 / 0</span>
+            </div>
+            <div class="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
+              <div id="progressBarFill" class="bg-blue-600 h-3 rounded-full transition-all duration-300 w-0"></div>
+            </div>
+          </div>
+
+          <!-- Delay Countdown Indicator -->
+          <div id="delayNotice" class="hidden p-2.5 bg-amber-50 rounded-lg border border-amber-200 text-xs text-amber-800 flex items-center justify-between">
+            <span class="flex items-center space-x-2">
+              <i data-lucide="clock" class="w-4 h-4 text-amber-600 animate-spin"></i>
+              <span>Anti-spam delay active...</span>
+            </span>
+            <span id="delayCountdownText" class="font-bold">Next email in 3s</span>
+          </div>
+
+          <!-- Stat Counters -->
+          <div class="grid grid-cols-3 gap-3">
+            <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 text-center">
+              <p class="text-xs text-slate-500 font-medium">Total Queued</p>
+              <p id="statTotal" class="text-xl font-bold text-slate-800 mt-0.5">0</p>
+            </div>
+            <div class="bg-emerald-50 border border-emerald-100 rounded-xl p-3 text-center">
+              <p class="text-xs text-emerald-600 font-medium">Successfully Sent</p>
+              <p id="statSent" class="text-xl font-bold text-emerald-700 mt-0.5">0</p>
+            </div>
+            <div class="bg-red-50 border border-red-100 rounded-xl p-3 text-center">
+              <p class="text-xs text-red-600 font-medium">Failed</p>
+              <p id="statFailed" class="text-xl font-bold text-red-700 mt-0.5">0</p>
+            </div>
+          </div>
+
+          <!-- Live Activity Stream Log -->
+          <div class="space-y-1.5">
+            <div class="flex items-center justify-between">
+              <label class="text-xs font-semibold uppercase text-slate-500 tracking-wider">Live Activity Log</label>
+              <span class="text-xs text-slate-400">Real-time status</span>
+            </div>
+            <div id="activityLogsBox" class="bg-slate-900 text-slate-200 rounded-xl p-3.5 font-mono text-xs max-h-48 overflow-y-auto space-y-1 leading-relaxed">
+              <div class="text-slate-500">// Waiting to start...</div>
+            </div>
+          </div>
+
+          <!-- Live Recipient Status List -->
+          <div class="space-y-1.5">
+            <label class="text-xs font-semibold uppercase text-slate-500 tracking-wider">Recipients Status</label>
+            <div class="border border-slate-200 rounded-xl overflow-hidden max-h-56 overflow-y-auto">
+              <table id="liveStatusTable" class="w-full text-left text-xs border-collapse">
+                <thead class="bg-slate-50 border-b border-slate-200 text-slate-600 sticky top-0">
+                  <tr>
+                    <th class="p-2.5">#</th>
+                    <th class="p-2.5">Recipient</th>
+                    <th class="p-2.5">Status</th>
+                  </tr>
+                </thead>
+                <tbody id="liveStatusBody" class="divide-y divide-slate-100">
+                  <!-- Populated by JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+
+      </section>
+
+    </div>
+
+  </main>
+
+  <!-- Gmail Credentials & SMTP Settings Modal -->
+  <div id="settingsModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden transform transition-all">
+      <div class="p-6 border-b border-slate-100 flex items-center justify-between">
+        <div class="flex items-center space-x-2.5">
+          <div class="w-9 h-9 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center">
+            <i data-lucide="mail-check" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-slate-900">Gmail SMTP Settings</h3>
+            <p class="text-xs text-slate-500">Configure your sender email and Google App Password</p>
+          </div>
+        </div>
+        <button id="closeSettingsModalBtn" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="p-6 space-y-4">
+        <!-- Environmental status alert -->
+        <div id="envStatusAlert" class="p-3 rounded-xl text-xs flex items-start space-x-2.5 bg-blue-50 text-blue-800 border border-blue-200">
+          <i data-lucide="info" class="w-4 h-4 text-blue-600 shrink-0 mt-0.5"></i>
+          <span id="envStatusAlertText">You can configure credentials here or directly in the project's <code class="font-bold">.env</code> file.</span>
+        </div>
+
+        <!-- Gmail Address -->
+        <div class="space-y-1">
+          <label for="inputGmailUser" class="block text-xs font-semibold text-slate-700">Gmail Address</label>
+          <input type="email" id="inputGmailUser" placeholder="e.g. himanshu@gmail.com" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+        </div>
+
+        <!-- Gmail App Password -->
+        <div class="space-y-1">
+          <div class="flex items-center justify-between">
+            <label for="inputGmailPass" class="block text-xs font-semibold text-slate-700">16-character App Password</label>
+            <button type="button" id="togglePassVisibility" class="text-xs text-blue-600 hover:underline">Show</button>
+          </div>
+          <input type="password" id="inputGmailPass" placeholder="xxxx xxxx xxxx xxxx" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+          <p class="text-xs text-slate-400">Do NOT use your personal Gmail password. Use a Google App Password.</p>
+        </div>
+
+        <!-- Verification Feedback Message -->
+        <div id="verifyFeedback" class="hidden p-3 rounded-lg text-xs"></div>
+
+        <!-- How to get App Password collapsible guide -->
+        <details class="group bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs">
+          <summary class="font-semibold text-slate-700 cursor-pointer flex items-center justify-between select-none">
+            <span class="flex items-center space-x-1.5">
+              <i data-lucide="help-circle" class="w-4 h-4 text-blue-500"></i>
+              <span>How to generate a Google App Password (1 min)</span>
+            </span>
+            <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-400 group-open:rotate-180 transition"></i>
+          </summary>
+          <ol class="list-decimal list-inside space-y-1.5 text-slate-600 mt-3 pt-2 border-t border-slate-200">
+            <li>Go to <a href="https://myaccount.google.com/security" target="_blank" class="text-blue-600 underline font-medium">Google Account Security</a>.</li>
+            <li>Ensure <strong>2-Step Verification</strong> is enabled.</li>
+            <li>Go to <a href="https://myaccount.google.com/apppasswords" target="_blank" class="text-blue-600 underline font-medium">App Passwords</a>.</li>
+            <li>Create an app named <strong>"Auto Cold Sender"</strong> and click <strong>Create</strong>.</li>
+            <li>Copy the 16-character code (e.g. <code class="bg-slate-200 px-1 py-0.5 rounded">abcd efgh ijkl mnop</code>) and paste it above!</li>
+          </ol>
+        </details>
+      </div>
+
+      <div class="p-6 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
+        <button id="testSmtpBtn" class="px-4 py-2 rounded-lg bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 text-xs font-semibold transition flex items-center space-x-1.5">
+          <i data-lucide="activity" class="w-3.5 h-3.5 text-slate-500"></i>
+          <span>Test Connection</span>
+        </button>
+        <button id="saveSettingsBtn" class="px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition shadow-sm">
+          Save Settings
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Generic Action Confirmation / Alert Modal -->
+  <div id="confirmModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-200 overflow-hidden transform transition-all">
+      <div class="p-6 text-center space-y-4">
+        <div id="confirmModalIconContainer" class="w-14 h-14 rounded-2xl mx-auto flex items-center justify-center shadow-sm bg-blue-100 text-blue-600">
+          <i id="confirmModalIcon" data-lucide="send" class="w-7 h-7"></i>
+        </div>
+        
+        <div class="space-y-1.5">
+          <h3 id="confirmModalTitle" class="text-lg font-bold text-slate-900">Ready to Launch Campaign?</h3>
+          <p id="confirmModalMessage" class="text-xs text-slate-600 leading-relaxed">
+            Please review the details below before proceeding.
+          </p>
+        </div>
+
+        <!-- Custom Details Box -->
+        <div id="confirmModalDetailsBox" class="bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-left text-xs space-y-2">
+          <!-- Dynamically inserted by JS -->
+        </div>
+      </div>
+
+      <div class="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-end space-x-3">
+        <button id="confirmModalCancelBtn" class="px-4 py-2.5 rounded-xl border border-slate-300 hover:bg-slate-100 text-slate-700 text-xs font-semibold transition">
+          Cancel
+        </button>
+        <button id="confirmModalConfirmBtn" class="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition shadow-sm flex items-center space-x-1.5">
+          <span id="confirmModalBtnText">Confirm & Send</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="bg-white border-t border-slate-200 py-4 mt-auto">
+    <div class="max-w-7xl mx-auto px-4 text-center text-xs text-slate-400">
+      Auto Cold Email Sender &bull; Built for Himanshu Narware &bull; Fullstack Developer Outreach
+    </div>
+  </footer>
+
+  <script src="/app.js"></script>
+</body>
+</html>

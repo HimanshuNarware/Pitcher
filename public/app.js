@@ -1,0 +1,890 @@
+// Auto Cold Email Sender - Frontend Logic
+
+let appConfig = {
+  hasEnvCredentials: false,
+  envUser: null,
+  defaultDelaySeconds: 3
+};
+
+let currentFileData = null;
+let activeEventSource = null;
+let currentJobId = null;
+let delayTimerInterval = null;
+
+// DOM Elements
+const smtpStatusBadge = document.getElementById('smtpStatusBadge');
+const smtpStatusText = document.getElementById('smtpStatusText');
+const openSettingsBtn = document.getElementById('openSettingsBtn');
+const closeSettingsModalBtn = document.getElementById('closeSettingsModalBtn');
+const settingsModal = document.getElementById('settingsModal');
+const inputGmailUser = document.getElementById('inputGmailUser');
+const inputGmailPass = document.getElementById('inputGmailPass');
+const togglePassVisibility = document.getElementById('togglePassVisibility');
+const testSmtpBtn = document.getElementById('testSmtpBtn');
+const saveSettingsBtn = document.getElementById('saveSettingsBtn');
+const verifyFeedback = document.getElementById('verifyFeedback');
+const envStatusAlertText = document.getElementById('envStatusAlertText');
+
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+const fileInfoPanel = document.getElementById('fileInfoPanel');
+const uploadedFileName = document.getElementById('uploadedFileName');
+const uploadedFileStats = document.getElementById('uploadedFileStats');
+const removeFileBtn = document.getElementById('removeFileBtn');
+const emailColumnSelect = document.getElementById('emailColumnSelect');
+const totalRowsCount = document.getElementById('totalRowsCount');
+const validEmailsCount = document.getElementById('validEmailsCount');
+const previewTable = document.getElementById('previewTable');
+
+const delaySeconds = document.getElementById('delaySeconds');
+const delayBadge = document.getElementById('delayBadge');
+const skipDuplicatesCheck = document.getElementById('skipDuplicatesCheck');
+const dryRunCheck = document.getElementById('dryRunCheck');
+
+const tabEditBtn = document.getElementById('tabEditBtn');
+const tabPreviewBtn = document.getElementById('tabPreviewBtn');
+const editModeContainer = document.getElementById('editModeContainer');
+const previewModeContainer = document.getElementById('previewModeContainer');
+const emailSubject = document.getElementById('emailSubject');
+const emailBody = document.getElementById('emailBody');
+const renderedSubjectPreview = document.getElementById('renderedSubjectPreview');
+const renderedSenderPreview = document.getElementById('renderedSenderPreview');
+const renderedHtmlBody = document.getElementById('renderedHtmlBody');
+
+const readyToSendCount = document.getElementById('readyToSendCount');
+const startSendBtn = document.getElementById('startSendBtn');
+
+const progressSection = document.getElementById('progressSection');
+const jobStatusDot = document.getElementById('jobStatusDot');
+const jobStatusHeading = document.getElementById('jobStatusHeading');
+const stopJobBtn = document.getElementById('stopJobBtn');
+const downloadReportBtn = document.getElementById('downloadReportBtn');
+const progressBarFill = document.getElementById('progressBarFill');
+const progressPercentText = document.getElementById('progressPercentText');
+const progressFractionText = document.getElementById('progressFractionText');
+const delayNotice = document.getElementById('delayNotice');
+const delayCountdownText = document.getElementById('delayCountdownText');
+const statTotal = document.getElementById('statTotal');
+const statSent = document.getElementById('statSent');
+const statFailed = document.getElementById('statFailed');
+const activityLogsBox = document.getElementById('activityLogsBox');
+const liveStatusBody = document.getElementById('liveStatusBody');
+
+// Confirm / Alert Modal Elements
+const confirmModal = document.getElementById('confirmModal');
+const confirmModalTitle = document.getElementById('confirmModalTitle');
+const confirmModalMessage = document.getElementById('confirmModalMessage');
+const confirmModalDetailsBox = document.getElementById('confirmModalDetailsBox');
+const confirmModalCancelBtn = document.getElementById('confirmModalCancelBtn');
+const confirmModalConfirmBtn = document.getElementById('confirmModalConfirmBtn');
+const confirmModalBtnText = document.getElementById('confirmModalBtnText');
+const confirmModalIconContainer = document.getElementById('confirmModalIconContainer');
+
+let confirmModalCallback = null;
+
+function showConfirmModal({
+  title = 'Confirmation',
+  message = '',
+  icon = 'send',
+  iconBg = 'bg-blue-100 text-blue-600',
+  detailsHtml = '',
+  confirmText = 'Proceed',
+  confirmBtnClass = 'bg-blue-600 hover:bg-blue-700 text-white',
+  showCancel = true,
+  onConfirm = null
+}) {
+  confirmModalTitle.textContent = title;
+  confirmModalMessage.textContent = message;
+  confirmModalBtnText.textContent = confirmText;
+  confirmModalConfirmBtn.className = `px-5 py-2.5 rounded-xl text-xs font-semibold transition shadow-sm flex items-center space-x-1.5 ${confirmBtnClass}`;
+  confirmModalIconContainer.className = `w-14 h-14 rounded-2xl mx-auto flex items-center justify-center shadow-sm ${iconBg}`;
+  confirmModalIconContainer.innerHTML = `<i data-lucide="${icon}" class="w-7 h-7"></i>`;
+  lucide.createIcons();
+
+  if (detailsHtml) {
+    confirmModalDetailsBox.innerHTML = detailsHtml;
+    confirmModalDetailsBox.classList.remove('hidden');
+  } else {
+    confirmModalDetailsBox.innerHTML = '';
+    confirmModalDetailsBox.classList.add('hidden');
+  }
+
+  confirmModalCancelBtn.style.display = showCancel ? 'inline-block' : 'none';
+  confirmModalCallback = onConfirm;
+
+  confirmModal.classList.remove('hidden');
+}
+
+function hideConfirmModal() {
+  confirmModal.classList.add('hidden');
+  confirmModalCallback = null;
+}
+
+function showAlertModal(title, message, icon = 'alert-circle', iconBg = 'bg-red-100 text-red-600') {
+  showConfirmModal({
+    title,
+    message,
+    icon,
+    iconBg,
+    confirmText: 'Dismiss',
+    confirmBtnClass: 'bg-slate-800 hover:bg-slate-900 text-white',
+    showCancel: false
+  });
+}
+
+// Initialize Icons
+lucide.createIcons();
+
+// ---------------- INITIALIZATION ---------------- //
+
+async function init() {
+  loadStoredCredentials();
+  await fetchConfig();
+  setupEventListeners();
+  updateLiveEmailPreview();
+}
+
+function loadStoredCredentials() {
+  const savedUser = localStorage.getItem('auto_sender_gmail_user');
+  const savedPass = localStorage.getItem('auto_sender_gmail_pass');
+  if (savedUser) inputGmailUser.value = savedUser;
+  if (savedPass) inputGmailPass.value = savedPass;
+}
+
+async function fetchConfig() {
+  try {
+    const res = await fetch('/api/config');
+    const data = await res.json();
+    appConfig = data;
+
+    if (data.defaultDelaySeconds) {
+      delaySeconds.value = data.defaultDelaySeconds;
+      delayBadge.textContent = `${data.defaultDelaySeconds} seconds`;
+    }
+
+    updateSmtpStatusUI();
+  } catch (err) {
+    console.error('Failed to load server config:', err);
+  }
+}
+
+function updateSmtpStatusUI() {
+  const hasLocalCreds = Boolean(inputGmailUser.value.trim() && inputGmailPass.value.trim());
+
+  if (appConfig.hasEnvCredentials) {
+    smtpStatusBadge.className = 'flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200';
+    smtpStatusBadge.innerHTML = `
+      <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+      <span>Gmail Configured (.env)</span>
+    `;
+    envStatusAlertText.innerHTML = `Connected to Gmail configured in <code class="font-bold">.env</code>: <strong>${appConfig.envUser}</strong>`;
+    renderedSenderPreview.textContent = appConfig.envUser;
+  } else if (hasLocalCreds) {
+    smtpStatusBadge.className = 'flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200';
+    smtpStatusBadge.innerHTML = `
+      <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+      <span>Gmail Configured</span>
+    `;
+    renderedSenderPreview.textContent = inputGmailUser.value.trim();
+  } else {
+    smtpStatusBadge.className = 'flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200';
+    smtpStatusBadge.innerHTML = `
+      <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+      <span>Gmail Not Set Up</span>
+    `;
+    renderedSenderPreview.textContent = 'Not configured yet';
+  }
+}
+
+// ---------------- EVENT LISTENERS ---------------- //
+
+function setupEventListeners() {
+  // Modal toggles
+  openSettingsBtn.addEventListener('click', () => {
+    settingsModal.classList.remove('hidden');
+    verifyFeedback.classList.add('hidden');
+  });
+
+  closeSettingsModalBtn.addEventListener('click', () => {
+    settingsModal.classList.add('hidden');
+  });
+
+  settingsModal.addEventListener('click', (e) => {
+    if (e.target === settingsModal) {
+      settingsModal.classList.add('hidden');
+    }
+  });
+
+  // Password visibility toggle
+  togglePassVisibility.addEventListener('click', () => {
+    if (inputGmailPass.type === 'password') {
+      inputGmailPass.type = 'text';
+      togglePassVisibility.textContent = 'Hide';
+    } else {
+      inputGmailPass.type = 'password';
+      togglePassVisibility.textContent = 'Show';
+    }
+  });
+
+  // Save Settings
+  saveSettingsBtn.addEventListener('click', () => {
+    localStorage.setItem('auto_sender_gmail_user', inputGmailUser.value.trim());
+    localStorage.setItem('auto_sender_gmail_pass', inputGmailPass.value.trim());
+    updateSmtpStatusUI();
+    settingsModal.classList.add('hidden');
+    checkCanSend();
+  });
+
+  // Test SMTP connection
+  testSmtpBtn.addEventListener('click', handleTestSmtp);
+
+  // File Upload Drag & Drop
+  dropZone.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', handleFileSelected);
+
+  dropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropZone.classList.add('border-blue-500', 'bg-blue-50/50');
+  });
+
+  dropZone.addEventListener('dragleave', () => {
+    dropZone.classList.remove('border-blue-500', 'bg-blue-50/50');
+  });
+
+  dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('border-blue-500', 'bg-blue-50/50');
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      fileInput.files = e.dataTransfer.files;
+      handleFileSelected();
+    }
+  });
+
+  removeFileBtn.addEventListener('click', clearUploadedFile);
+  emailColumnSelect.addEventListener('change', handleColumnChange);
+
+  // Delay Slider
+  delaySeconds.addEventListener('input', () => {
+    delayBadge.textContent = `${delaySeconds.value} seconds`;
+  });
+
+  // Edit / Preview Tabs
+  tabEditBtn.addEventListener('click', () => {
+    tabEditBtn.className = 'px-3 py-1.5 rounded-md font-semibold bg-white text-slate-900 shadow-sm transition';
+    tabPreviewBtn.className = 'px-3 py-1.5 rounded-md font-semibold text-slate-600 hover:text-slate-900 transition';
+    editModeContainer.classList.remove('hidden');
+    previewModeContainer.classList.add('hidden');
+  });
+
+  tabPreviewBtn.addEventListener('click', () => {
+    tabPreviewBtn.className = 'px-3 py-1.5 rounded-md font-semibold bg-white text-slate-900 shadow-sm transition';
+    tabEditBtn.className = 'px-3 py-1.5 rounded-md font-semibold text-slate-600 hover:text-slate-900 transition';
+    editModeContainer.classList.add('hidden');
+    previewModeContainer.classList.remove('hidden');
+    updateLiveEmailPreview();
+  });
+
+  emailSubject.addEventListener('input', updateLiveEmailPreview);
+  emailBody.addEventListener('input', updateLiveEmailPreview);
+
+  // Start Sending
+  startSendBtn.addEventListener('click', handleStartCampaign);
+
+  // Stop Sending
+  stopJobBtn.addEventListener('click', handleStopCampaign);
+
+  // Download Report
+  downloadReportBtn.addEventListener('click', handleDownloadReport);
+
+  // Confirm / Alert Modal Buttons
+  confirmModalCancelBtn.addEventListener('click', hideConfirmModal);
+  confirmModalConfirmBtn.addEventListener('click', () => {
+    const cb = confirmModalCallback;
+    hideConfirmModal();
+    if (cb) cb();
+  });
+  confirmModal.addEventListener('click', (e) => {
+    if (e.target === confirmModal) {
+      hideConfirmModal();
+    }
+  });
+}
+
+// ---------------- SMTP VERIFICATION ---------------- //
+
+async function handleTestSmtp() {
+  testSmtpBtn.disabled = true;
+  testSmtpBtn.innerHTML = `
+    <span class="w-3.5 h-3.5 border-2 border-slate-500 border-t-transparent rounded-full animate-spin"></span>
+    <span>Verifying...</span>
+  `;
+  verifyFeedback.classList.add('hidden');
+
+  try {
+    const res = await fetch('/api/verify-smtp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        gmailUser: inputGmailUser.value.trim(),
+        gmailAppPassword: inputGmailPass.value.trim()
+      })
+    });
+
+    const data = await res.json();
+    verifyFeedback.classList.remove('hidden');
+
+    if (data.success) {
+      verifyFeedback.className = 'p-3 rounded-lg text-xs bg-emerald-50 text-emerald-800 border border-emerald-200';
+      verifyFeedback.innerHTML = `<strong>Success!</strong> ${data.message}`;
+    } else {
+      verifyFeedback.className = 'p-3 rounded-lg text-xs bg-red-50 text-red-800 border border-red-200';
+      verifyFeedback.innerHTML = `<strong>Error:</strong> ${data.error}`;
+    }
+  } catch (err) {
+    verifyFeedback.classList.remove('hidden');
+    verifyFeedback.className = 'p-3 rounded-lg text-xs bg-red-50 text-red-800 border border-red-200';
+    verifyFeedback.innerHTML = `<strong>Request Failed:</strong> ${err.message}`;
+  } finally {
+    testSmtpBtn.disabled = false;
+    testSmtpBtn.innerHTML = `
+      <i data-lucide="activity" class="w-3.5 h-3.5 text-slate-500"></i>
+      <span>Test Connection</span>
+    `;
+    lucide.createIcons();
+  }
+}
+
+// ---------------- FILE UPLOAD & PARSING ---------------- //
+
+async function handleFileSelected() {
+  const file = fileInput.files[0];
+  if (!file) return;
+
+  const formData = new FormData();
+  formData.append('file', file);
+
+  dropZone.innerHTML = `
+    <div class="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mb-2"></div>
+    <p class="text-sm font-semibold text-slate-800">Parsing spreadsheet...</p>
+    <p class="text-xs text-slate-500">Scanning columns and verifying email format</p>
+  `;
+
+  try {
+    const res = await fetch('/api/parse-file', {
+      method: 'POST',
+      body: formData
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || 'Failed to parse file');
+    }
+
+    currentFileData = data;
+    renderFileInfo(data);
+    checkCanSend();
+  } catch (err) {
+    showAlertModal('File Upload Failed', err.message);
+    clearUploadedFile();
+  }
+}
+
+function renderFileInfo(data) {
+  dropZone.classList.add('hidden');
+  fileInfoPanel.classList.remove('hidden');
+
+  uploadedFileName.textContent = data.fileName;
+  uploadedFileStats.textContent = `${data.totalRows} rows found across ${data.columns.length} columns`;
+  totalRowsCount.textContent = data.totalRows;
+  validEmailsCount.textContent = data.validEmailCount;
+  readyToSendCount.textContent = data.validEmailCount;
+
+  // Populate Column Dropdown
+  emailColumnSelect.innerHTML = '';
+  data.columns.forEach(col => {
+    const opt = document.createElement('option');
+    opt.value = col;
+    opt.textContent = col + (col === data.detectedEmailColumn ? ' (Auto-detected Email)' : '');
+    if (col === data.detectedEmailColumn) {
+      opt.selected = true;
+    }
+    emailColumnSelect.appendChild(opt);
+  });
+
+  renderPreviewTable(data.sampleRows, data.columns, data.detectedEmailColumn);
+}
+
+function handleColumnChange() {
+  if (!currentFileData) return;
+  const selectedCol = emailColumnSelect.value;
+  currentFileData.detectedEmailColumn = selectedCol;
+
+  // Recalculate valid count
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  let validCount = 0;
+  currentFileData.rows.forEach(r => {
+    if (emailRegex.test(String(r[selectedCol] || '').trim())) {
+      validCount++;
+    }
+  });
+
+  currentFileData.validEmailCount = validCount;
+  validEmailsCount.textContent = validCount;
+  readyToSendCount.textContent = validCount;
+
+  renderPreviewTable(currentFileData.sampleRows, currentFileData.columns, selectedCol);
+  checkCanSend();
+}
+
+function renderPreviewTable(rows, columns, highlightCol) {
+  if (!rows || rows.length === 0) {
+    previewTable.innerHTML = '<tr><td class="p-2 text-slate-400">No data to display</td></tr>';
+    return;
+  }
+
+  let html = '<thead class="bg-slate-100 text-slate-600 font-semibold border-b border-slate-200"><tr>';
+  columns.forEach(col => {
+    const isHighlight = col === highlightCol;
+    html += `<th class="p-2 truncate ${isHighlight ? 'bg-blue-50 text-blue-700 font-bold' : ''}">${col}</th>`;
+  });
+  html += '</tr></thead><tbody class="divide-y divide-slate-100">';
+
+  rows.forEach(row => {
+    html += '<tr class="hover:bg-slate-50">';
+    columns.forEach(col => {
+      const isHighlight = col === highlightCol;
+      const val = row[col] !== undefined ? String(row[col]) : '';
+      html += `<td class="p-2 truncate max-w-[150px] ${isHighlight ? 'bg-blue-50/40 text-blue-900 font-medium' : 'text-slate-600'}">${escapeHtml(val)}</td>`;
+    });
+    html += '</tr>';
+  });
+  html += '</tbody>';
+
+  previewTable.innerHTML = html;
+}
+
+function clearUploadedFile() {
+  currentFileData = null;
+  fileInput.value = '';
+  dropZone.classList.remove('hidden');
+  fileInfoPanel.classList.add('hidden');
+  totalRowsCount.textContent = '0';
+  validEmailsCount.textContent = '0';
+  readyToSendCount.textContent = '0';
+
+  dropZone.innerHTML = `
+    <input type="file" id="fileInput" accept=".csv, .xlsx, .xls" class="hidden">
+    <div class="w-12 h-12 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">
+      <i data-lucide="upload-cloud" class="w-6 h-6"></i>
+    </div>
+    <div>
+      <p class="text-sm font-semibold text-slate-800">
+        Click to browse or drag & drop file
+      </p>
+      <p class="text-xs text-slate-500 mt-1">Supports CSV, XLSX, or XLS spreadsheets</p>
+    </div>
+    <div class="inline-flex items-center space-x-1 text-xs text-slate-500 bg-white px-2.5 py-1 rounded-md border border-slate-200">
+      <i data-lucide="info" class="w-3.5 h-3.5 text-slate-400"></i>
+      <span>Auto-detects email column automatically</span>
+    </div>
+  `;
+  document.getElementById('fileInput').addEventListener('change', handleFileSelected);
+  lucide.createIcons();
+  checkCanSend();
+}
+
+// ---------------- EMAIL PREVIEW RENDERING ---------------- //
+
+function updateLiveEmailPreview() {
+  const subject = emailSubject.value;
+  const body = emailBody.value;
+
+  renderedSubjectPreview.textContent = subject;
+
+  // Hyperlink URLs and format HTML
+  const escaped = escapeHtml(body);
+  const urlRegex = /(https?:\/\/[^\s<]+)/g;
+  const withLinks = escaped.replace(urlRegex, (url) => {
+    return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-blue-600 underline font-medium hover:text-blue-800">${url}</a>`;
+  });
+
+  renderedHtmlBody.innerHTML = withLinks.replace(/\n/g, '<br/>');
+}
+
+function escapeHtml(text) {
+  if (!text) return '';
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function checkCanSend() {
+  const hasValidEmails = currentFileData && currentFileData.validEmailCount > 0;
+  const hasSubject = Boolean(emailSubject.value.trim());
+  const hasBody = Boolean(emailBody.value.trim());
+
+  startSendBtn.disabled = !(hasValidEmails && hasSubject && hasBody);
+}
+
+// ---------------- CAMPAIGN EXECUTION & SSE STREAM ---------------- //
+
+function handleStartCampaign() {
+  const isDryRun = dryRunCheck ? dryRunCheck.checked : false;
+  const hasCredentials = appConfig.hasEnvCredentials || (inputGmailUser.value.trim() && inputGmailPass.value.trim());
+
+  if (!isDryRun && !hasCredentials) {
+    settingsModal.classList.remove('hidden');
+    verifyFeedback.classList.remove('hidden');
+    verifyFeedback.className = 'p-3 rounded-lg text-xs bg-amber-50 text-amber-800 border border-amber-200';
+    verifyFeedback.innerHTML = '<strong>SMTP Credentials Required:</strong> Please enter your Gmail and 16-character Google App Password to proceed, or check "Simulation Mode (Dry Run)" to test without credentials.';
+    return;
+  }
+
+  const emailCol = emailColumnSelect.value;
+  const subject = emailSubject.value.trim();
+  const body = emailBody.value.trim();
+  const delaySec = Number(delaySeconds.value) || 3;
+  const skipDuplicates = skipDuplicatesCheck.checked;
+
+  const modeText = isDryRun ? 'SIMULATION (Dry Run)' : 'REAL EMAILS via Gmail SMTP';
+  const senderDisplay = isDryRun ? 'Simulation (No real emails)' : (inputGmailUser.value.trim() || appConfig.envUser || 'Configured Gmail');
+
+  const detailsHtml = `
+    <div class="space-y-2 text-xs">
+      <div class="flex items-center justify-between py-1 border-b border-slate-200">
+        <span class="text-slate-500 font-medium">Recipients</span>
+        <span class="font-bold text-slate-900 bg-slate-100 px-2.5 py-0.5 rounded">${currentFileData.validEmailCount} valid contacts</span>
+      </div>
+      <div class="flex items-center justify-between py-1 border-b border-slate-200">
+        <span class="text-slate-500 font-medium">Sending Mode</span>
+        <span class="font-bold px-2 py-0.5 rounded ${isDryRun ? 'text-amber-800 bg-amber-100' : 'text-blue-800 bg-blue-100'}">${modeText}</span>
+      </div>
+      <div class="flex items-center justify-between py-1 border-b border-slate-200">
+        <span class="text-slate-500 font-medium">Anti-Spam Delay</span>
+        <span class="font-bold text-slate-800">${delaySec} seconds between emails</span>
+      </div>
+      <div class="flex items-center justify-between py-1">
+        <span class="text-slate-500 font-medium">Sender Account</span>
+        <span class="font-medium text-slate-800 truncate max-w-[210px]">${senderDisplay}</span>
+      </div>
+    </div>
+  `;
+
+  showConfirmModal({
+    title: isDryRun ? 'Ready to Start Simulation?' : 'Ready to Launch Campaign?',
+    message: isDryRun
+      ? `Ready to simulate sending cold emails to ${currentFileData.validEmailCount} recipients with a ${delaySec}s delay. No real emails will be sent.`
+      : `Ready to send cold emails to ${currentFileData.validEmailCount} recipients [Mode: ${modeText}] with a ${delaySec}s delay between each email.\n\nDo you want to proceed?`,
+    icon: isDryRun ? 'flask-conical' : 'send',
+    iconBg: isDryRun ? 'bg-amber-100 text-amber-600' : 'bg-blue-100 text-blue-600',
+    detailsHtml,
+    confirmText: isDryRun ? 'Start Simulation' : 'Confirm & Send',
+    confirmBtnClass: isDryRun ? 'bg-amber-600 hover:bg-amber-700 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white',
+    onConfirm: () => {
+      executeCampaign({ emailCol, subject, body, delaySec, skipDuplicates, isDryRun, modeText });
+    }
+  });
+}
+
+async function executeCampaign({ emailCol, subject, body, delaySec, skipDuplicates, isDryRun, modeText }) {
+  // Disable controls while running
+  startSendBtn.disabled = true;
+  dropZone.style.pointerEvents = 'none';
+
+  // Prepare UI for Progress
+  progressSection.classList.remove('hidden');
+  progressSection.scrollIntoView({ behavior: 'smooth' });
+
+  jobStatusHeading.textContent = isDryRun ? 'Running simulation campaign...' : 'Initializing campaign...';
+  jobStatusDot.className = 'w-3 h-3 rounded-full bg-blue-500 animate-ping';
+  stopJobBtn.disabled = false;
+  downloadReportBtn.disabled = true;
+
+  statTotal.textContent = currentFileData.validEmailCount;
+  statSent.textContent = '0';
+  statFailed.textContent = '0';
+  progressBarFill.style.width = '0%';
+  progressPercentText.textContent = '0% Completed';
+  progressFractionText.textContent = `0 / ${currentFileData.validEmailCount}`;
+
+  activityLogsBox.innerHTML = '';
+  appendLog(`[${new Date().toLocaleTimeString()}] Campaign initialized [Mode: ${modeText}]. Connecting to server...`, 'text-blue-400');
+
+  try {
+    // 1. Create Job on backend
+    const res = await fetch('/api/jobs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        recipients: currentFileData.rows,
+        emailColumn: emailCol,
+        subject,
+        body,
+        delaySeconds: delaySec,
+        skipDuplicates,
+        isDryRun,
+        gmailUser: inputGmailUser.value.trim(),
+        gmailAppPassword: inputGmailPass.value.trim()
+      })
+    });
+
+    const jobData = await res.json();
+    if (!res.ok) {
+      throw new Error(jobData.error || 'Failed to create job');
+    }
+
+    currentJobId = jobData.jobId;
+
+    // 2. Connect to Server-Sent Events (SSE) Stream
+    connectJobStream(currentJobId);
+
+  } catch (err) {
+    appendLog(`[ERROR] ${err.message}`, 'text-red-400 font-bold');
+    jobStatusHeading.textContent = 'Failed to start campaign';
+    jobStatusDot.className = 'w-3 h-3 rounded-full bg-red-500';
+    startSendBtn.disabled = false;
+  }
+}
+
+function connectJobStream(jobId) {
+  if (activeEventSource) {
+    activeEventSource.close();
+  }
+
+  const sse = new EventSource(`/api/jobs/${jobId}/stream`);
+  activeEventSource = sse;
+
+  sse.addEventListener('init', (e) => {
+    const data = JSON.parse(e.data);
+    statTotal.textContent = data.validTotal;
+    buildLiveStatusTable(data.items);
+  });
+
+  sse.addEventListener('job_start', (e) => {
+    const data = JSON.parse(e.data);
+    jobStatusHeading.textContent = 'Sending emails...';
+    appendLog(`[${new Date().toLocaleTimeString()}] ${data.message}`, 'text-blue-300 font-semibold');
+  });
+
+  sse.addEventListener('item_sending', (e) => {
+    const data = JSON.parse(e.data);
+    updateRowStatus(data.id, 'sending', 'Sending...');
+    hideDelayCountdown();
+  });
+
+  sse.addEventListener('item_success', (e) => {
+    const data = JSON.parse(e.data);
+    updateRowStatus(data.id, 'sent', 'Sent');
+    statSent.textContent = data.sentCount;
+    statFailed.textContent = data.failedCount;
+    updateProgressBar(data.sentCount + data.failedCount, parseInt(statTotal.textContent));
+    appendLog(`[${new Date().toLocaleTimeString()}] SUCCESS: Sent to ${data.email}`, 'text-emerald-400');
+  });
+
+  sse.addEventListener('item_failure', (e) => {
+    const data = JSON.parse(e.data);
+    updateRowStatus(data.id, 'failed', `Failed: ${data.error}`);
+    statSent.textContent = data.sentCount;
+    statFailed.textContent = data.failedCount;
+    updateProgressBar(data.sentCount + data.failedCount, parseInt(statTotal.textContent));
+    appendLog(`[${new Date().toLocaleTimeString()}] FAILED: ${data.email} (${data.error})`, 'text-red-400');
+  });
+
+  sse.addEventListener('waiting_delay', (e) => {
+    const data = JSON.parse(e.data);
+    showDelayCountdown(data.seconds);
+  });
+
+  sse.addEventListener('job_completed', (e) => {
+    const data = JSON.parse(e.data);
+    finishCampaignUI('completed', data.message);
+    sse.close();
+  });
+
+  sse.addEventListener('job_stopped', (e) => {
+    const data = JSON.parse(e.data);
+    finishCampaignUI('stopped', data.message);
+    sse.close();
+  });
+
+  sse.addEventListener('job_error', (e) => {
+    const data = JSON.parse(e.data);
+    finishCampaignUI('error', data.error);
+    sse.close();
+  });
+
+  sse.onerror = (err) => {
+    console.error('SSE Stream error:', err);
+  };
+}
+
+function buildLiveStatusTable(items) {
+  liveStatusBody.innerHTML = '';
+  items.forEach(item => {
+    const tr = document.createElement('tr');
+    tr.id = `row-item-${item.id}`;
+    tr.className = 'hover:bg-slate-50 transition';
+
+    let badgeClass = 'bg-slate-100 text-slate-600 border border-slate-200';
+    let badgeText = 'Queued';
+
+    if (!item.isValid) {
+      badgeClass = 'bg-slate-100 text-slate-400 line-through';
+      badgeText = 'Invalid Email';
+    }
+
+    tr.innerHTML = `
+      <td class="p-2.5 text-slate-400 font-mono">${item.id}</td>
+      <td class="p-2.5 font-medium text-slate-800">${escapeHtml(item.email)}</td>
+      <td class="p-2.5 status-cell">
+        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${badgeClass}">
+          ${badgeText}
+        </span>
+      </td>
+    `;
+    liveStatusBody.appendChild(tr);
+  });
+}
+
+function updateRowStatus(itemId, status, text) {
+  const row = document.getElementById(`row-item-${itemId}`);
+  if (!row) return;
+
+  const cell = row.querySelector('.status-cell');
+  if (!cell) return;
+
+  let badgeClass = 'bg-slate-100 text-slate-700';
+  if (status === 'sending') {
+    badgeClass = 'bg-blue-100 text-blue-700 border border-blue-200 animate-pulse';
+  } else if (status === 'sent') {
+    badgeClass = 'bg-emerald-100 text-emerald-800 border border-emerald-200';
+  } else if (status === 'failed') {
+    badgeClass = 'bg-red-100 text-red-800 border border-red-200';
+  }
+
+  cell.innerHTML = `
+    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${badgeClass}">
+      ${escapeHtml(text)}
+    </span>
+  `;
+}
+
+function updateProgressBar(processed, total) {
+  const percent = total > 0 ? Math.round((processed / total) * 100) : 0;
+  progressBarFill.style.width = `${percent}%`;
+  progressPercentText.textContent = `${percent}% Completed`;
+  progressFractionText.textContent = `${processed} / ${total}`;
+}
+
+function showDelayCountdown(seconds) {
+  hideDelayCountdown();
+  delayNotice.classList.remove('hidden');
+  let remaining = seconds;
+  delayCountdownText.textContent = `Next email in ${remaining}s`;
+
+  delayTimerInterval = setInterval(() => {
+    remaining--;
+    if (remaining > 0) {
+      delayCountdownText.textContent = `Next email in ${remaining}s`;
+    } else {
+      hideDelayCountdown();
+    }
+  }, 1000);
+}
+
+function hideDelayCountdown() {
+  if (delayTimerInterval) {
+    clearInterval(delayTimerInterval);
+    delayTimerInterval = null;
+  }
+  delayNotice.classList.add('hidden');
+}
+
+function appendLog(text, colorClass = 'text-slate-300') {
+  const div = document.createElement('div');
+  div.className = colorClass;
+  div.textContent = text;
+  activityLogsBox.appendChild(div);
+  activityLogsBox.scrollTop = activityLogsBox.scrollHeight;
+}
+
+function finishCampaignUI(state, message) {
+  hideDelayCountdown();
+  stopJobBtn.disabled = true;
+  downloadReportBtn.disabled = false;
+  startSendBtn.disabled = false;
+  dropZone.style.pointerEvents = 'auto';
+
+  if (state === 'completed') {
+    jobStatusHeading.textContent = 'Campaign Completed!';
+    jobStatusDot.className = 'w-3 h-3 rounded-full bg-emerald-500';
+    appendLog(`[${new Date().toLocaleTimeString()}] SUCCESS: ${message}`, 'text-emerald-300 font-bold');
+    
+    // Auto-wipe spreadsheet data from browser memory
+    currentFileData = null;
+    if (fileInput) fileInput.value = '';
+    appendLog(`[${new Date().toLocaleTimeString()}] PRIVACY: Uploaded file data completely purged from memory.`, 'text-blue-300 italic');
+  } else if (state === 'stopped') {
+    jobStatusHeading.textContent = 'Campaign Stopped';
+    jobStatusDot.className = 'w-3 h-3 rounded-full bg-amber-500';
+    appendLog(`[${new Date().toLocaleTimeString()}] STOPPED: ${message}`, 'text-amber-300 font-bold');
+  } else {
+    jobStatusHeading.textContent = 'Campaign Stopped with Error';
+    jobStatusDot.className = 'w-3 h-3 rounded-full bg-red-500';
+    appendLog(`[${new Date().toLocaleTimeString()}] ERROR: ${message}`, 'text-red-400 font-bold');
+  }
+}
+
+function handleStopCampaign() {
+  if (!currentJobId) return;
+
+  showConfirmModal({
+    title: 'Stop Sending Campaign?',
+    message: 'Are you sure you want to stop sending remaining emails? Emails that were already sent cannot be unsent.',
+    icon: 'alert-triangle',
+    iconBg: 'bg-red-100 text-red-600',
+    confirmText: 'Yes, Stop Campaign',
+    confirmBtnClass: 'bg-red-600 hover:bg-red-700 text-white',
+    onConfirm: async () => {
+      try {
+        await fetch(`/api/jobs/${currentJobId}/stop`, { method: 'POST' });
+        appendLog(`[${new Date().toLocaleTimeString()}] Stop signal sent to server...`, 'text-amber-400');
+      } catch (err) {
+        console.error('Stop error:', err);
+      }
+    }
+  });
+}
+
+async function handleDownloadReport() {
+  if (!currentJobId) return;
+
+  try {
+    const res = await fetch(`/api/jobs/${currentJobId}/report`);
+    const data = await res.json();
+
+    // Generate CSV
+    let csvContent = 'ID,Email,Status,Error,MessageID\n';
+    data.items.forEach(it => {
+      const escapedErr = (it.error || '').replace(/"/g, '""');
+      csvContent += `${it.id},"${it.email}","${it.status}","${escapedErr}","${it.messageId || ''}"\n`;
+    });
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `cold_email_report_${Date.now()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  } catch (err) {
+    showAlertModal('Report Export Failed', `Failed to export report: ${err.message}`);
+  }
+}
+
+// Kick off
+init();

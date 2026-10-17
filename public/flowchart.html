@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Application Flowchart | Auto Cold Email Sender</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Mermaid.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'default',
+      securityLevel: 'loose',
+      flowchart: {
+        useMaxWidth: true,
+        htmlLabels: true,
+        curve: 'basis'
+      }
+    });
+  </script>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col font-sans antialiased">
+
+  <!-- Top Sticky Header -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <a href="/" class="flex items-center space-x-2 text-slate-500 hover:text-slate-800 transition">
+          <i data-lucide="arrow-left" class="w-5 h-5"></i>
+          <span class="text-xs font-semibold">Back to App</span>
+        </a>
+        <span class="text-slate-300">|</span>
+        <div class="flex items-center space-x-2">
+          <h1 class="text-base font-bold text-slate-900">Application Architecture Flowchart</h1>
+          <span class="px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">Interactive</span>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="flex items-center space-x-2.5">
+        <button id="downloadSvgBtn" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-semibold transition shadow-sm">
+          <i data-lucide="image" class="w-4 h-4 text-slate-500"></i>
+          <span>Download SVG</span>
+        </button>
+
+        <button id="downloadPngBtn" class="flex items-center space-x-1.5 px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition shadow-sm shadow-blue-600/20">
+          <i data-lucide="download" class="w-4 h-4"></i>
+          <span>Download PNG</span>
+        </button>
+
+        <a href="/api/download-flowchart-md" download="FLOWCHART.md" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition border border-slate-200">
+          <i data-lucide="file-text" class="w-4 h-4 text-slate-500"></i>
+          <span>Download .MD</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Flowchart Container -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full">
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 space-y-6">
+      
+      <div class="border-b border-slate-100 pb-4">
+        <h2 class="text-xl font-bold text-slate-900 tracking-tight">Auto Cold Email Sender Flowchart</h2>
+        <p class="text-xs text-slate-500 mt-1">
+          Detailed lifecycle depicting credential setup, zero-disk in-memory spreadsheet ingestion, live SSE execution, and automatic data wiping.
+        </p>
+      </div>
+
+      <!-- Diagram Canvas -->
+      <div id="diagramContainer" class="flex items-center justify-center p-4 bg-slate-50/50 rounded-xl border border-slate-100 overflow-x-auto min-h-[500px]">
+        <div id="mermaidTarget" class="mermaid">
+flowchart TD
+    %% Subgraph 1: User Configuration
+    subgraph S1["1. Setup & Configuration"]
+        A["Start Application (npm start)"] --> B["Open Web UI (http://localhost:3000)"]
+        B --> C{"Gmail SMTP Configured?"}
+        C -- "No" --> D["Open 'Gmail Settings' Modal<br/>Enter Gmail & 16-Char Google App Password"]
+        D --> E["Test SMTP Connection via Nodemailer"]
+        E --> F["Credentials Ready (or use Simulation Mode)"]
+        C -- "Yes (via .env or Saved)" --> F
+    end
+
+    %% Subgraph 2: In-Memory Ingestion
+    subgraph S2["2. Zero-Disk In-Memory Ingestion"]
+        F --> G["Drag & Drop CSV / XLSX File"]
+        G --> H["Multer reads file into RAM Buffer<br/>(ZERO files written to hard drive)"]
+        H --> I["SheetJS parses workbook in memory"]
+        I --> J["Auto-detect Email Column & Validate Emails"]
+        J --> K["UI displays preview table & valid email count"]
+    end
+
+    %% Subgraph 3: Template & Rules
+    subgraph S3["3. Template & Anti-Spam Setup"]
+        K --> L["Pre-filled Cold Email Template Loaded<br/>(Himanshu's Resume, GitHub, Portfolio, LinkedIn)"]
+        L --> M["Set Anti-Spam Delay (3-5s recommended)<br/>& Toggle Duplicate Skipping"]
+        M --> N["User clicks 'Start Cold Emailing'"]
+    end
+
+    %% Subgraph 4: Execution & Real-Time SSE
+    subgraph S4["4. Real-Time Sequential Sending Loop"]
+        N --> O["Custom Confirmation Modal<br/>(Review Recipients, Mode, Delay & Sender)"]
+        O --> P["POST /api/jobs -> Job created in memory"]
+        P --> Q["Browser connects to Server-Sent Events (SSE) Stream"]
+        Q --> R{"More recipients in queue?"}
+        
+        R -- "Yes" --> S["Replace placeholders (e.g. {{Company}})<br/>Convert links to clickable HTML"]
+        S --> T["Send Email via Gmail SMTP<br/>(or mock if Dry Run)"]
+        T --> U["Stream event to UI: update progress bar,<br/>counter, log terminal, & row badge"]
+        U --> V["Wait configured anti-spam delay (e.g. 3s)<br/>with live countdown timer"]
+        V --> R
+    end
+
+    %% Subgraph 5: Auto-Purge & Cleanup
+    subgraph S5["5. Automatic Purge & Reporting"]
+        R -- "No (All Sent)" --> W["Campaign Completed!"]
+        W --> X["Server deletes all spreadsheet row data from RAM<br/>(delete it.data)"]
+        X --> Y["Browser resets file input & clears memory state"]
+        Y --> Z["User can optionally download timestamped CSV report"]
+    end
+
+    style S2 fill:#eff6ff,stroke:#3b82f6,stroke-width:2px
+    style S4 fill:#f0fdf4,stroke:#22c55e,stroke-width:2px
+    style S5 fill:#fef2f2,stroke:#ef4444,stroke-width:2px
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <script>
+    lucide.createIcons();
+
+    // Helper: Trigger file download
+    function triggerDownload(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    // Download SVG
+    document.getElementById('downloadSvgBtn').addEventListener('click', () => {
+      const svgEl = document.querySelector('#mermaidTarget svg');
+      if (!svgEl) return alert('Diagram still loading, please wait a moment.');
+
+      const serializer = new XMLSerializer();
+      let source = serializer.serializeToString(svgEl);
+      if (!source.match(/^<svg[^>]+xmlns="http\:\/\/www\.w3\.org\/2000\/svg"/)) {
+        source = source.replace(/^<svg/, '<svg xmlns="http://www.w3.org/2000/svg"');
+      }
+
+      const blob = new Blob([source], { type: 'image/svg+xml;charset=utf-8' });
+      triggerDownload(blob, 'auto_sender_flowchart.svg');
+    });
+
+    // Download PNG
+    document.getElementById('downloadPngBtn').addEventListener('click', () => {
+      const svgEl = document.querySelector('#mermaidTarget svg');
+      if (!svgEl) return alert('Diagram still loading, please wait a moment.');
+
+      const serializer = new XMLSerializer();
+      let source = serializer.serializeToString(svgEl);
+      if (!source.match(/^<svg[^>]+xmlns="http\:\/\/www\.w3\.org\/2000\/svg"/)) {
+        source = source.replace(/^<svg/, '<svg xmlns="http://www.w3.org/2000/svg"');
+      }
+
+      const svgBlob = new Blob([source], { type: 'image/svg+xml;charset=utf-8' });
+      const url = URL.createObjectURL(svgBlob);
+      const img = new Image();
+
+      img.onload = function() {
+        const bbox = svgEl.getBoundingClientRect();
+        const canvas = document.createElement('canvas');
+        const scale = 2; // high resolution 2x
+        canvas.width = (bbox.width || 1200) * scale;
+        canvas.height = (bbox.height || 1600) * scale;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.scale(scale, scale);
+        ctx.drawImage(img, 0, 0);
+
+        canvas.toBlob((blob) => {
+          triggerDownload(blob, 'auto_sender_flowchart.png');
+          URL.revokeObjectURL(url);
+        }, 'image/png');
+      };
+
+      img.src = url;
+    });
+  </script>
+</body>
+</html>
