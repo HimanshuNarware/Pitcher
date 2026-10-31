@@ -25,6 +25,14 @@ const saveSettingsBtn = document.getElementById('saveSettingsBtn');
 const verifyFeedback = document.getElementById('verifyFeedback');
 const envStatusAlertText = document.getElementById('envStatusAlertText');
 
+// Mode Switch & Containers
+const tabModeFileBtn = document.getElementById('tabModeFileBtn');
+const tabModeNotepadBtn = document.getElementById('tabModeNotepadBtn');
+const fileModeContainer = document.getElementById('fileModeContainer');
+const notepadModeContainer = document.getElementById('notepadModeContainer');
+const sharedDataPanel = document.getElementById('sharedDataPanel');
+
+// File Upload Elements
 const dropZone = document.getElementById('dropZone');
 const fileInput = document.getElementById('fileInput');
 const fileInfoPanel = document.getElementById('fileInfoPanel');
@@ -32,6 +40,18 @@ const uploadedFileName = document.getElementById('uploadedFileName');
 const uploadedFileStats = document.getElementById('uploadedFileStats');
 const removeFileBtn = document.getElementById('removeFileBtn');
 const emailColumnSelect = document.getElementById('emailColumnSelect');
+
+// Notepad Elements
+const notepadTextarea = document.getElementById('notepadTextarea');
+const notepadPasteBtn = document.getElementById('notepadPasteBtn');
+const notepadCleanBtn = document.getElementById('notepadCleanBtn');
+const notepadSampleBtn = document.getElementById('notepadSampleBtn');
+const notepadClearBtn = document.getElementById('notepadClearBtn');
+const notepadTotalLines = document.getElementById('notepadTotalLines');
+const notepadValidEmails = document.getElementById('notepadValidEmails');
+const notepadDuplicateEmails = document.getElementById('notepadDuplicateEmails');
+
+// Shared Table & Counters
 const totalRowsCount = document.getElementById('totalRowsCount');
 const validEmailsCount = document.getElementById('validEmailsCount');
 const previewTable = document.getElementById('previewTable');
@@ -50,6 +70,21 @@ const emailBody = document.getElementById('emailBody');
 const renderedSubjectPreview = document.getElementById('renderedSubjectPreview');
 const renderedSenderPreview = document.getElementById('renderedSenderPreview');
 const renderedHtmlBody = document.getElementById('renderedHtmlBody');
+
+// Attachment Elements
+const imageUploadBox = document.getElementById('imageUploadBox');
+const imageFileInput = document.getElementById('imageFileInput');
+const imagePreviewChip = document.getElementById('imagePreviewChip');
+const imageThumbnail = document.getElementById('imageThumbnail');
+const imageFileName = document.getElementById('imageFileName');
+const imageFileSize = document.getElementById('imageFileSize');
+const removeImageBtn = document.getElementById('removeImageBtn');
+const renderedAttachmentPreview = document.getElementById('renderedAttachmentPreview');
+const renderedAttachmentName = document.getElementById('renderedAttachmentName');
+const renderedAttachmentImage = document.getElementById('renderedAttachmentImage');
+
+let activeInputMode = 'file'; // 'file' or 'notepad'
+let currentAttachment = null; // { filename, data, contentType, sizeText, isImage }
 
 const readyToSendCount = document.getElementById('readyToSendCount');
 const startSendBtn = document.getElementById('startSendBtn');
@@ -139,6 +174,7 @@ lucide.createIcons();
 
 async function init() {
   loadStoredCredentials();
+  loadStoredTemplates();
   await fetchConfig();
   setupEventListeners();
   updateLiveEmailPreview();
@@ -149,6 +185,17 @@ function loadStoredCredentials() {
   const savedPass = localStorage.getItem('auto_sender_gmail_pass');
   if (savedUser) inputGmailUser.value = savedUser;
   if (savedPass) inputGmailPass.value = savedPass;
+}
+
+function loadStoredTemplates() {
+  const savedSubject = localStorage.getItem('auto_sender_email_subject');
+  const savedBody = localStorage.getItem('auto_sender_email_body');
+  if (savedSubject !== null) {
+    emailSubject.value = savedSubject;
+  }
+  if (savedBody !== null) {
+    emailBody.value = savedBody;
+  }
 }
 
 async function fetchConfig() {
@@ -268,6 +315,44 @@ function setupEventListeners() {
     delayBadge.textContent = `${delaySeconds.value} seconds`;
   });
 
+  // Step 1: Input Mode Switch (File vs Notepad)
+  tabModeFileBtn.addEventListener('click', () => switchInputMode('file'));
+  tabModeNotepadBtn.addEventListener('click', () => switchInputMode('notepad'));
+
+  // Notepad Interactions
+  notepadTextarea.addEventListener('input', handleNotepadInput);
+  notepadPasteBtn.addEventListener('click', handleNotepadPaste);
+  notepadCleanBtn.addEventListener('click', handleNotepadClean);
+  notepadSampleBtn.addEventListener('click', handleNotepadSample);
+  notepadClearBtn.addEventListener('click', handleNotepadClear);
+
+  // Step 2: Attachment Interactions
+  imageUploadBox.addEventListener('click', () => imageFileInput.click());
+  imageFileInput.addEventListener('change', (e) => {
+    if (e.target.files && e.target.files[0]) {
+      handleImageSelected(e.target.files[0]);
+    }
+  });
+
+  imageUploadBox.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    imageUploadBox.classList.add('border-blue-500', 'bg-blue-50/50');
+  });
+
+  imageUploadBox.addEventListener('dragleave', () => {
+    imageUploadBox.classList.remove('border-blue-500', 'bg-blue-50/50');
+  });
+
+  imageUploadBox.addEventListener('drop', (e) => {
+    e.preventDefault();
+    imageUploadBox.classList.remove('border-blue-500', 'bg-blue-50/50');
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleImageSelected(e.dataTransfer.files[0]);
+    }
+  });
+
+  removeImageBtn.addEventListener('click', removeCurrentAttachment);
+
   // Edit / Preview Tabs
   tabEditBtn.addEventListener('click', () => {
     tabEditBtn.className = 'px-3 py-1.5 rounded-md font-semibold bg-white text-slate-900 shadow-sm transition';
@@ -284,8 +369,17 @@ function setupEventListeners() {
     updateLiveEmailPreview();
   });
 
-  emailSubject.addEventListener('input', updateLiveEmailPreview);
-  emailBody.addEventListener('input', updateLiveEmailPreview);
+  emailSubject.addEventListener('input', () => {
+    localStorage.setItem('auto_sender_email_subject', emailSubject.value);
+    updateLiveEmailPreview();
+    checkCanSend();
+  });
+
+  emailBody.addEventListener('input', () => {
+    localStorage.setItem('auto_sender_email_body', emailBody.value);
+    updateLiveEmailPreview();
+    checkCanSend();
+  });
 
   // Start Sending
   startSendBtn.addEventListener('click', handleStartCampaign);
@@ -354,6 +448,212 @@ async function handleTestSmtp() {
   }
 }
 
+// ---------------- INPUT MODE SWITCHING & NOTEPAD ---------------- //
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function switchInputMode(mode) {
+  activeInputMode = mode;
+  if (mode === 'file') {
+    tabModeFileBtn.className = 'px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 bg-white text-blue-700 shadow-sm border border-slate-200/80';
+    tabModeNotepadBtn.className = 'px-3.5 py-1.5 rounded-lg text-xs font-medium transition flex items-center space-x-1.5 text-slate-600 hover:text-slate-900';
+    fileModeContainer.classList.remove('hidden');
+    notepadModeContainer.classList.add('hidden');
+
+    if (currentFileData && currentFileData.source === 'file') {
+      sharedDataPanel.classList.remove('hidden');
+      totalRowsCount.textContent = currentFileData.totalRows;
+      validEmailsCount.textContent = currentFileData.validEmailCount;
+      readyToSendCount.textContent = currentFileData.validEmailCount;
+      renderPreviewTable(currentFileData.sampleRows, currentFileData.columns, currentFileData.detectedEmailColumn);
+    } else {
+      sharedDataPanel.classList.add('hidden');
+      totalRowsCount.textContent = '0';
+      validEmailsCount.textContent = '0';
+      readyToSendCount.textContent = '0';
+    }
+  } else {
+    tabModeNotepadBtn.className = 'px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 bg-white text-blue-700 shadow-sm border border-slate-200/80';
+    tabModeFileBtn.className = 'px-3.5 py-1.5 rounded-lg text-xs font-medium transition flex items-center space-x-1.5 text-slate-600 hover:text-slate-900';
+    fileModeContainer.classList.add('hidden');
+    notepadModeContainer.classList.remove('hidden');
+
+    handleNotepadInput();
+  }
+  checkCanSend();
+}
+
+function parseEmailsFromText(rawText) {
+  if (!rawText || !rawText.trim()) {
+    return { linesCount: 0, validEmails: [], duplicatesCount: 0, rows: [] };
+  }
+
+  const lines = rawText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  const seen = new Set();
+  const validEmails = [];
+  let duplicatesCount = 0;
+
+  lines.forEach(line => {
+    const tokens = line.split(/[,\s;]+/).map(t => t.trim()).filter(Boolean);
+    tokens.forEach(tok => {
+      if (EMAIL_REGEX.test(tok)) {
+        const lower = tok.toLowerCase();
+        if (seen.has(lower)) {
+          duplicatesCount++;
+        } else {
+          seen.add(lower);
+          validEmails.push(tok);
+        }
+      }
+    });
+  });
+
+  const rows = validEmails.map(e => ({ Email: e }));
+  return { linesCount: lines.length, validEmails, duplicatesCount, rows };
+}
+
+function handleNotepadInput() {
+  const text = notepadTextarea.value;
+  const { linesCount, validEmails, duplicatesCount, rows } = parseEmailsFromText(text);
+
+  notepadTotalLines.textContent = linesCount;
+  notepadValidEmails.textContent = validEmails.length;
+  notepadDuplicateEmails.textContent = duplicatesCount;
+
+  if (activeInputMode === 'notepad') {
+    if (validEmails.length > 0) {
+      currentFileData = {
+        source: 'notepad',
+        fileName: 'Pasted Emails (Notepad)',
+        sheetName: 'Notepad',
+        columns: ['Email'],
+        detectedEmailColumn: 'Email',
+        totalRows: validEmails.length,
+        validEmailCount: validEmails.length,
+        sampleRows: rows.slice(0, 5),
+        rows
+      };
+      sharedDataPanel.classList.remove('hidden');
+      totalRowsCount.textContent = validEmails.length;
+      validEmailsCount.textContent = validEmails.length;
+      readyToSendCount.textContent = validEmails.length;
+      renderPreviewTable(currentFileData.sampleRows, ['Email'], 'Email');
+    } else {
+      currentFileData = null;
+      sharedDataPanel.classList.add('hidden');
+      totalRowsCount.textContent = '0';
+      validEmailsCount.textContent = '0';
+      readyToSendCount.textContent = '0';
+    }
+  }
+
+  checkCanSend();
+}
+
+async function handleNotepadPaste() {
+  try {
+    const text = await navigator.clipboard.readText();
+    if (text) {
+      const current = notepadTextarea.value.trim();
+      notepadTextarea.value = current ? `${current}\n${text.trim()}` : text.trim();
+      handleNotepadInput();
+    }
+  } catch (err) {
+    notepadTextarea.focus();
+  }
+}
+
+function handleNotepadClean() {
+  const { validEmails } = parseEmailsFromText(notepadTextarea.value);
+  if (validEmails.length > 0) {
+    notepadTextarea.value = validEmails.join('\n');
+    handleNotepadInput();
+  }
+}
+
+function handleNotepadSample() {
+  const sample = [
+    'recruiter.alex@technova.com',
+    'sarah.jenkins@innovatehr.io',
+    'talent.acquisition@cloudscale.net',
+    'david.miller@apexsystems.dev',
+    'hr.careers@nextgensolutions.org'
+  ].join('\n');
+
+  notepadTextarea.value = sample;
+  handleNotepadInput();
+}
+
+function handleNotepadClear() {
+  notepadTextarea.value = '';
+  notepadTotalLines.textContent = '0';
+  notepadValidEmails.textContent = '0';
+  notepadDuplicateEmails.textContent = '0';
+
+  if (activeInputMode === 'notepad') {
+    currentFileData = null;
+    sharedDataPanel.classList.add('hidden');
+    totalRowsCount.textContent = '0';
+    validEmailsCount.textContent = '0';
+    readyToSendCount.textContent = '0';
+    checkCanSend();
+  }
+}
+
+// ---------------- ATTACHMENT HANDLING ---------------- //
+
+function handleImageSelected(file) {
+  if (!file) return;
+
+  if (file.size > 5 * 1024 * 1024) {
+    showAlertModal('File Too Large', 'Maximum attachment size is 5MB. Please choose a smaller image or document.');
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = () => {
+    const dataUrl = reader.result;
+    const base64Data = dataUrl.split(',')[1];
+    const isImage = file.type.startsWith('image/');
+    const sizeText = file.size > 1024 * 1024
+      ? `${(file.size / (1024 * 1024)).toFixed(1)} MB`
+      : `${Math.round(file.size / 1024)} KB`;
+
+    currentAttachment = {
+      filename: file.name,
+      data: base64Data,
+      contentType: file.type || 'application/octet-stream',
+      sizeText,
+      isImage,
+      dataUrl
+    };
+
+    imageFileName.textContent = file.name;
+    imageFileSize.textContent = sizeText;
+
+    if (isImage) {
+      imageThumbnail.src = dataUrl;
+      imageThumbnail.classList.remove('hidden');
+    } else {
+      imageThumbnail.classList.add('hidden');
+    }
+
+    imageUploadBox.classList.add('hidden');
+    imagePreviewChip.classList.remove('hidden');
+    updateLiveEmailPreview();
+  };
+
+  reader.readAsDataURL(file);
+}
+
+function removeCurrentAttachment() {
+  currentAttachment = null;
+  imageFileInput.value = '';
+  imagePreviewChip.classList.add('hidden');
+  imageUploadBox.classList.remove('hidden');
+  updateLiveEmailPreview();
+}
+
 // ---------------- FILE UPLOAD & PARSING ---------------- //
 
 async function handleFileSelected() {
@@ -390,8 +690,10 @@ async function handleFileSelected() {
 }
 
 function renderFileInfo(data) {
+  data.source = 'file';
   dropZone.classList.add('hidden');
   fileInfoPanel.classList.remove('hidden');
+  sharedDataPanel.classList.remove('hidden');
 
   uploadedFileName.textContent = data.fileName;
   uploadedFileStats.textContent = `${data.totalRows} rows found across ${data.columns.length} columns`;
@@ -464,13 +766,17 @@ function renderPreviewTable(rows, columns, highlightCol) {
 }
 
 function clearUploadedFile() {
-  currentFileData = null;
+  if (activeInputMode === 'file') {
+    currentFileData = null;
+    sharedDataPanel.classList.add('hidden');
+    totalRowsCount.textContent = '0';
+    validEmailsCount.textContent = '0';
+    readyToSendCount.textContent = '0';
+  }
+
   fileInput.value = '';
   dropZone.classList.remove('hidden');
   fileInfoPanel.classList.add('hidden');
-  totalRowsCount.textContent = '0';
-  validEmailsCount.textContent = '0';
-  readyToSendCount.textContent = '0';
 
   dropZone.innerHTML = `
     <input type="file" id="fileInput" accept=".csv, .xlsx, .xls" class="hidden">
@@ -509,6 +815,20 @@ function updateLiveEmailPreview() {
   });
 
   renderedHtmlBody.innerHTML = withLinks.replace(/\n/g, '<br/>');
+
+  // Attachment preview in email viewer
+  if (currentAttachment) {
+    renderedAttachmentPreview.classList.remove('hidden');
+    renderedAttachmentName.textContent = `${currentAttachment.filename} (${currentAttachment.sizeText})`;
+    if (currentAttachment.isImage) {
+      renderedAttachmentImage.src = currentAttachment.dataUrl;
+      renderedAttachmentImage.classList.remove('hidden');
+    } else {
+      renderedAttachmentImage.classList.add('hidden');
+    }
+  } else {
+    renderedAttachmentPreview.classList.add('hidden');
+  }
 }
 
 function escapeHtml(text) {
@@ -543,7 +863,7 @@ function handleStartCampaign() {
     return;
   }
 
-  const emailCol = emailColumnSelect.value;
+  const emailCol = activeInputMode === 'notepad' ? 'Email' : emailColumnSelect.value;
   const subject = emailSubject.value.trim();
   const body = emailBody.value.trim();
   const delaySec = Number(delaySeconds.value) || 3;
@@ -551,12 +871,22 @@ function handleStartCampaign() {
 
   const modeText = isDryRun ? 'SIMULATION (Dry Run)' : 'REAL EMAILS via Gmail SMTP';
   const senderDisplay = isDryRun ? 'Simulation (No real emails)' : (inputGmailUser.value.trim() || appConfig.envUser || 'Configured Gmail');
+  const sourceDisplay = activeInputMode === 'notepad' ? 'Email Notepad (Pasted)' : `Spreadsheet (${currentFileData.fileName || 'Uploaded file'})`;
+  const attachmentDisplay = currentAttachment ? `${currentAttachment.filename} (${currentAttachment.sizeText})` : 'None';
 
   const detailsHtml = `
     <div class="space-y-2 text-xs">
       <div class="flex items-center justify-between py-1 border-b border-slate-200">
+        <span class="text-slate-500 font-medium">Source</span>
+        <span class="font-bold text-slate-800">${sourceDisplay}</span>
+      </div>
+      <div class="flex items-center justify-between py-1 border-b border-slate-200">
         <span class="text-slate-500 font-medium">Recipients</span>
         <span class="font-bold text-slate-900 bg-slate-100 px-2.5 py-0.5 rounded">${currentFileData.validEmailCount} valid contacts</span>
+      </div>
+      <div class="flex items-center justify-between py-1 border-b border-slate-200">
+        <span class="text-slate-500 font-medium">Attachment</span>
+        <span class="font-bold ${currentAttachment ? 'text-blue-700 bg-blue-50' : 'text-slate-500 bg-slate-50'} px-2 py-0.5 rounded truncate max-w-[200px]">${attachmentDisplay}</span>
       </div>
       <div class="flex items-center justify-between py-1 border-b border-slate-200">
         <span class="text-slate-500 font-medium">Sending Mode</span>
@@ -584,12 +914,25 @@ function handleStartCampaign() {
     confirmText: isDryRun ? 'Start Simulation' : 'Confirm & Send',
     confirmBtnClass: isDryRun ? 'bg-amber-600 hover:bg-amber-700 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white',
     onConfirm: () => {
-      executeCampaign({ emailCol, subject, body, delaySec, skipDuplicates, isDryRun, modeText });
+      executeCampaign({
+        emailCol,
+        subject,
+        body,
+        delaySec,
+        skipDuplicates,
+        isDryRun,
+        modeText,
+        attachment: currentAttachment ? {
+          filename: currentAttachment.filename,
+          data: currentAttachment.data,
+          contentType: currentAttachment.contentType
+        } : null
+      });
     }
   });
 }
 
-async function executeCampaign({ emailCol, subject, body, delaySec, skipDuplicates, isDryRun, modeText }) {
+async function executeCampaign({ emailCol, subject, body, delaySec, skipDuplicates, isDryRun, modeText, attachment }) {
   // Disable controls while running
   startSendBtn.disabled = true;
   dropZone.style.pointerEvents = 'none';
@@ -626,6 +969,7 @@ async function executeCampaign({ emailCol, subject, body, delaySec, skipDuplicat
         delaySeconds: delaySec,
         skipDuplicates,
         isDryRun,
+        attachment,
         gmailUser: inputGmailUser.value.trim(),
         gmailAppPassword: inputGmailPass.value.trim()
       })
@@ -823,10 +1167,18 @@ function finishCampaignUI(state, message) {
     jobStatusDot.className = 'w-3 h-3 rounded-full bg-emerald-500';
     appendLog(`[${new Date().toLocaleTimeString()}] SUCCESS: ${message}`, 'text-emerald-300 font-bold');
     
-    // Auto-wipe spreadsheet data from browser memory
+    // Auto-wipe recipient data and attachments from browser memory
     currentFileData = null;
     if (fileInput) fileInput.value = '';
-    appendLog(`[${new Date().toLocaleTimeString()}] PRIVACY: Uploaded file data completely purged from memory.`, 'text-blue-300 italic');
+    notepadTextarea.value = '';
+    notepadTotalLines.textContent = '0';
+    notepadValidEmails.textContent = '0';
+    notepadDuplicateEmails.textContent = '0';
+    removeCurrentAttachment();
+    sharedDataPanel.classList.add('hidden');
+    checkCanSend();
+
+    appendLog(`[${new Date().toLocaleTimeString()}] PRIVACY: Recipient list and attachments completely purged from memory.`, 'text-blue-300 italic');
   } else if (state === 'stopped') {
     jobStatusHeading.textContent = 'Campaign Stopped';
     jobStatusDot.className = 'w-3 h-3 rounded-full bg-amber-500';

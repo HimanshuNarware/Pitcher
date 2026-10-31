@@ -6,15 +6,19 @@ A full-stack web application and automated cold emailing tool built with **Node.
 
 ## ✨ Features
 
-- **Multi-Format Spreadsheet Parser**: Supports `.csv`, `.xlsx`, and `.xls` files with automatic email column detection.
-- **Smart Column Mapping**: Auto-identifies email columns and provides a manual dropdown selector with instant preview of rows and valid email counts.
+- **Dual Input Modes**:
+  - **Spreadsheet Mode**: Supports `.csv`, `.xlsx`, and `.xls` files with automatic email column detection and smart column mapping.
+  - **Email Notepad Mode**: Blank notepad to paste emails directly separated by new lines (`\n`) with real-time line, valid email, and duplicate counters, plus 1-click Clean, Sample, and Paste tools.
+- **Direct Image & Document Attachments**: Attach resume screenshots, portfolio graphics, or PDFs (up to 5MB) processed entirely in-memory with live thumbnail preview.
+- **Auto-Saved Templates (LocalStorage)**: Email subject and body changes are automatically remembered in your browser across sessions.
 - **Pre-Configured Application Template**: Pre-loaded with Himanshu Narware's Fullstack Developer portfolio, GitHub, LinkedIn, and resume links.
-- **Live HTML Preview**: Formats links into clean, clickable HTML hyperlinks.
+- **Live HTML Preview**: Formats links into clean, clickable HTML hyperlinks and shows attachment previews.
 - **Dynamic Personalization**: Automatically replaces placeholders like `{{Company}}` or `{{HR Name}}` using data from your spreadsheet columns.
 - **Anti-Spam Safety Controls**:
   - Configurable delay (default: 3–5 seconds) between outgoing emails to protect your Gmail sender reputation.
   - Automatic email deduplication (prevents emailing the same address twice).
   - Safe Simulation Mode (Dry Run) to test campaigns without sending real emails.
+- **Zero-Disk Storage & In-Memory Privacy**: Neither contacts nor attachments are saved to disk; all data is immediately purged from RAM upon campaign completion.
 - **Real-Time Progress & SSE Streaming**: Live status dashboard displaying queued, sent, and failed counters, animated progress bar, countdown timers, real-time activity log, and per-contact badges.
 - **Exportable Reports**: One-click download of timestamped CSV execution reports with message IDs and delivery statuses.
 - **Flexible SMTP Setup**: Configure credentials via `.env` file or directly in the UI with an instant connection tester.

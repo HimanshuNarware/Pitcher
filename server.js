@@ -184,6 +184,59 @@ app.post('/api/parse-file', upload.single('file'), (req, res) => {
   }
 });
 
+// 3b. Parse Raw Text / Notepad Emails
+app.post('/api/parse-text-emails', (req, res) => {
+  try {
+    const { text } = req.body;
+    if (!text || typeof text !== 'string') {
+      return res.status(400).json({ error: 'No text provided' });
+    }
+
+    const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    const seen = new Set();
+    const valid = [];
+    let duplicates = 0;
+    let invalid = 0;
+
+    lines.forEach(line => {
+      const tokens = line.split(/[,\s;]+/).map(t => t.trim()).filter(Boolean);
+      tokens.forEach(email => {
+        if (EMAIL_REGEX.test(email)) {
+          const lower = email.toLowerCase();
+          if (seen.has(lower)) {
+            duplicates++;
+          } else {
+            seen.add(lower);
+            valid.push(email);
+          }
+        } else {
+          invalid++;
+        }
+      });
+    });
+
+    const rows = valid.map(e => ({ Email: e }));
+
+    res.json({
+      success: true,
+      fileName: 'Pasted Emails (Notepad)',
+      sheetName: 'Notepad',
+      columns: ['Email'],
+      detectedEmailColumn: 'Email',
+      totalRows: valid.length,
+      validEmailCount: valid.length,
+      duplicateCount: duplicates,
+      invalidCount: invalid,
+      totalLines: lines.length,
+      sampleRows: rows.slice(0, 5),
+      rows
+    });
+  } catch (error) {
+    console.error('Text parsing error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // 4. Create Sending Job
 app.post('/api/jobs', (req, res) => {
   try {
@@ -195,6 +248,7 @@ app.post('/api/jobs', (req, res) => {
       delaySeconds = 3,
       skipDuplicates = true,
       isDryRun = false,
+      attachment = null,
       gmailUser,
       gmailAppPassword
     } = req.body;
@@ -264,6 +318,7 @@ app.post('/api/jobs', (req, res) => {
       body,
       delaySeconds: Math.max(1, Number(delaySeconds) || 3),
       isDryRun: Boolean(isDryRun),
+      attachment: attachment && attachment.filename && attachment.data ? attachment : null,
       credentials: {
         gmailUser: gmailUser || process.env.GMAIL_USER,
         gmailAppPassword: gmailAppPassword || process.env.GMAIL_APP_PASSWORD
@@ -419,13 +474,25 @@ async function startSendingJob(job) {
         await new Promise(r => setTimeout(r, 400));
         info = { messageId: `dry-run-${Date.now()}-${item.id}` };
       } else {
-        info = await transporter.sendMail({
+        const mailOptions = {
           from: `"${job.credentials.gmailUser.split('@')[0]}" <${job.credentials.gmailUser}>`,
           to: item.email,
           subject: personalizedSubject,
           text: personalizedBody,
           html: htmlBody
-        });
+        };
+
+        if (job.attachment && job.attachment.filename && job.attachment.data) {
+          mailOptions.attachments = [
+            {
+              filename: job.attachment.filename,
+              content: Buffer.from(job.attachment.data, 'base64'),
+              contentType: job.attachment.contentType || 'application/octet-stream'
+            }
+          ];
+        }
+
+        info = await transporter.sendMail(mailOptions);
       }
 
       item.status = 'sent';
@@ -476,10 +543,13 @@ async function startSendingJob(job) {
     }
   }
 
-  // Clean up sensitive row data from memory immediately after campaign run
+  // Clean up sensitive row data and attachment from memory immediately after campaign run
   job.items.forEach(it => {
     delete it.data; // Wipe all spreadsheet row details from memory
   });
+  if (job.attachment) {
+    delete job.attachment; // Wipe attached file/image from memory immediately
+  }
 
   if (job.status !== 'stopped') {
     job.status = 'completed';

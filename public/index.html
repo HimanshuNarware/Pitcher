@@ -87,74 +87,133 @@
       <!-- LEFT COLUMN: Step 1 (Upload & Mapping) (5 cols) -->
       <section class="lg:col-span-5 space-y-6">
         
-        <!-- File Upload Card -->
+        <!-- Recipients Input Card -->
         <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-5">
-          <div class="flex items-center justify-between">
+          <div class="flex items-center justify-between flex-wrap gap-2">
             <h2 class="text-base font-bold text-slate-900 flex items-center space-x-2">
-              <i data-lucide="file-spreadsheet" class="w-5 h-5 text-blue-600"></i>
-              <span>Recipients Spreadsheet</span>
+              <i data-lucide="users" class="w-5 h-5 text-blue-600"></i>
+              <span>Recipients</span>
             </h2>
-            <!-- <div class="flex items-center space-x-2 text-xs">
-              <a href="/api/sample-csv" download class="text-blue-600 hover:text-blue-700 hover:underline flex items-center space-x-1">
-                <i data-lucide="download" class="w-3.5 h-3.5"></i>
-                <span>Sample CSV</span>
-              </a>
-              <span class="text-slate-300">|</span>
-              <a href="/api/sample-xlsx" download class="text-blue-600 hover:text-blue-700 hover:underline flex items-center space-x-1">
-                <i data-lucide="download" class="w-3.5 h-3.5"></i>
-                <span>Sample XLSX</span>
-              </a>
-            </div> -->
-          </div>
 
-          <!-- Drag & Drop Zone -->
-          <div id="dropZone" class="border-2 border-dashed border-slate-300 hover:border-blue-500 bg-slate-50/70 hover:bg-blue-50/30 rounded-xl p-6 text-center cursor-pointer transition flex flex-col items-center justify-center space-y-3">
-            <input type="file" id="fileInput" accept=".csv, .xlsx, .xls" class="hidden">
-            <div class="w-12 h-12 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">
-              <i data-lucide="upload-cloud" class="w-6 h-6"></i>
-            </div>
-            <div>
-              <p class="text-sm font-semibold text-slate-800">
-                Click to browse or drag & drop file
-              </p>
-              <p class="text-xs text-slate-500 mt-1">Supports CSV, XLSX, or XLS spreadsheets</p>
-            </div>
-            <div class="inline-flex items-center space-x-1 text-xs text-slate-500 bg-white px-2.5 py-1 rounded-md border border-slate-200">
-              <i data-lucide="info" class="w-3.5 h-3.5 text-slate-400"></i>
-              <span>Auto-detects email column automatically</span>
-            </div>
-          </div>
-
-          <!-- Uploaded File Info Panel (Hidden initially) -->
-          <div id="fileInfoPanel" class="hidden space-y-4 pt-2 border-t border-slate-100">
-            <div class="flex items-center justify-between bg-slate-50 p-3 rounded-lg border border-slate-200">
-              <div class="flex items-center space-x-2.5 overflow-hidden">
-                <i data-lucide="file-check" class="w-5 h-5 text-emerald-600 shrink-0"></i>
-                <div class="truncate">
-                  <p id="uploadedFileName" class="text-sm font-medium text-slate-900 truncate">contacts.csv</p>
-                  <p id="uploadedFileStats" class="text-xs text-slate-500">0 rows found</p>
-                </div>
-              </div>
-              <button id="removeFileBtn" class="text-slate-400 hover:text-red-500 p-1 transition" title="Remove file">
-                <i data-lucide="x" class="w-4 h-4"></i>
+            <!-- Input Mode Switcher: File Upload vs Notepad -->
+            <div class="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs">
+              <button type="button" id="tabModeFileBtn" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-md font-semibold bg-white text-slate-900 shadow-sm transition">
+                <i data-lucide="file-spreadsheet" class="w-3.5 h-3.5 text-blue-600"></i>
+                <span>CSV / Excel</span>
+              </button>
+              <button type="button" id="tabModeNotepadBtn" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-md font-semibold text-slate-600 hover:text-slate-900 transition">
+                <i data-lucide="file-text" class="w-3.5 h-3.5 text-slate-500"></i>
+                <span>Paste Notepad</span>
               </button>
             </div>
+          </div>
 
-            <!-- Column Selection Mapping -->
-            <div class="space-y-1.5">
-              <label class="block text-xs font-semibold uppercase text-slate-500 tracking-wider">
-                Select Recipient Email Column
-              </label>
-              <select id="emailColumnSelect" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                <!-- Dynamically populated -->
-              </select>
-              <p class="text-xs text-slate-500">Choose which header contains the target email addresses.</p>
+          <!-- MODE 1: File Upload Section -->
+          <div id="fileModeContainer" class="space-y-4">
+            <!-- Drag & Drop Zone -->
+            <div id="dropZone" class="border-2 border-dashed border-slate-300 hover:border-blue-500 bg-slate-50/70 hover:bg-blue-50/30 rounded-xl p-6 text-center cursor-pointer transition flex flex-col items-center justify-center space-y-3">
+              <input type="file" id="fileInput" accept=".csv, .xlsx, .xls" class="hidden">
+              <div class="w-12 h-12 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">
+                <i data-lucide="upload-cloud" class="w-6 h-6"></i>
+              </div>
+              <div>
+                <p class="text-sm font-semibold text-slate-800">
+                  Click to browse or drag & drop file
+                </p>
+                <p class="text-xs text-slate-500 mt-1">Supports CSV, XLSX, or XLS spreadsheets</p>
+              </div>
+              <div class="inline-flex items-center space-x-1 text-xs text-slate-500 bg-white px-2.5 py-1 rounded-md border border-slate-200">
+                <i data-lucide="info" class="w-3.5 h-3.5 text-slate-400"></i>
+                <span>Auto-detects email column automatically</span>
+              </div>
             </div>
 
+            <!-- Uploaded File Info Panel (Hidden initially) -->
+            <div id="fileInfoPanel" class="hidden space-y-4 pt-2 border-t border-slate-100">
+              <div class="flex items-center justify-between bg-slate-50 p-3 rounded-lg border border-slate-200">
+                <div class="flex items-center space-x-2.5 overflow-hidden">
+                  <i data-lucide="file-check" class="w-5 h-5 text-emerald-600 shrink-0"></i>
+                  <div class="truncate">
+                    <p id="uploadedFileName" class="text-sm font-medium text-slate-900 truncate">contacts.csv</p>
+                    <p id="uploadedFileStats" class="text-xs text-slate-500">0 rows found</p>
+                  </div>
+                </div>
+                <button type="button" id="removeFileBtn" class="text-slate-400 hover:text-red-500 p-1 transition" title="Remove file">
+                  <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+              </div>
+
+              <!-- Column Selection Mapping -->
+              <div class="space-y-1.5">
+                <label class="block text-xs font-semibold uppercase text-slate-500 tracking-wider">
+                  Select Recipient Email Column
+                </label>
+                <select id="emailColumnSelect" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                  <!-- Dynamically populated -->
+                </select>
+                <p class="text-xs text-slate-500">Choose which header contains the target email addresses.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- MODE 2: Blank Notepad (Paste Emails) Section -->
+          <div id="notepadModeContainer" class="hidden space-y-3.5">
+            <div class="flex items-center justify-between">
+              <div>
+                <label for="notepadTextarea" class="block text-xs font-semibold uppercase text-slate-700 tracking-wider">
+                  Email Notepad
+                </label>
+                <p class="text-[11px] text-slate-400">Paste emails below, separated by new lines</p>
+              </div>
+              
+              <!-- Toolbar Actions -->
+              <div class="flex items-center space-x-1.5 text-xs">
+                <button type="button" id="notepadPasteBtn" class="px-2.5 py-1 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium transition flex items-center space-x-1" title="Paste from clipboard">
+                  <i data-lucide="clipboard" class="w-3.5 h-3.5 text-slate-500"></i>
+                  <span>Paste</span>
+                </button>
+                <button type="button" id="notepadCleanBtn" class="px-2.5 py-1 rounded-md bg-blue-50 hover:bg-blue-100 text-blue-700 font-medium transition flex items-center space-x-1" title="Clean whitespace & duplicates">
+                  <i data-lucide="sparkles" class="w-3.5 h-3.5 text-blue-500"></i>
+                  <span>Clean</span>
+                </button>
+                <button type="button" id="notepadSampleBtn" class="px-2.5 py-1 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium transition flex items-center space-x-1" title="Insert sample list">
+                  <i data-lucide="file-plus" class="w-3.5 h-3.5 text-slate-500"></i>
+                  <span>Sample</span>
+                </button>
+                <button type="button" id="notepadClearBtn" class="p-1 rounded-md hover:bg-red-50 text-slate-400 hover:text-red-600 transition" title="Clear notepad">
+                  <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                </button>
+              </div>
+            </div>
+
+            <!-- Notepad Textarea -->
+            <div class="relative">
+              <textarea id="notepadTextarea" rows="9" placeholder="Paste recruiter email list here (one email per line)...&#10;&#10;sarah.jenkins@technova.com&#10;david.miller@innovatex.com&#10;hr@apexcloud.io" class="w-full bg-slate-50/80 border border-slate-300 rounded-xl p-3.5 font-mono text-xs leading-relaxed text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-y shadow-inner"></textarea>
+            </div>
+
+            <!-- Real-time Status Counters -->
+            <div class="grid grid-cols-3 gap-2 text-center text-xs">
+              <div class="bg-slate-50 border border-slate-200 rounded-lg p-2">
+                <p class="text-[10px] text-slate-400 font-medium uppercase">Lines</p>
+                <p id="notepadTotalLines" class="text-base font-bold text-slate-700 mt-0.5">0</p>
+              </div>
+              <div class="bg-emerald-50 border border-emerald-100 rounded-lg p-2">
+                <p class="text-[10px] text-emerald-600 font-medium uppercase">Valid Emails</p>
+                <p id="notepadValidEmails" class="text-base font-bold text-emerald-800 mt-0.5">0</p>
+              </div>
+              <div class="bg-amber-50 border border-amber-100 rounded-lg p-2">
+                <p class="text-[10px] text-amber-600 font-medium uppercase">Duplicates</p>
+                <p id="notepadDuplicateEmails" class="text-base font-bold text-amber-800 mt-0.5">0</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Common Preview and Stats (Shared across both modes when data is present) -->
+          <div id="sharedDataPanel" class="hidden space-y-4 pt-2 border-t border-slate-100">
             <!-- Data Preview Summary -->
             <div class="grid grid-cols-2 gap-3 pt-1">
               <div class="bg-blue-50/60 border border-blue-100 rounded-lg p-3">
-                <p class="text-xs text-blue-600 font-medium">Total Rows</p>
+                <p class="text-xs text-blue-600 font-medium">Total Entries</p>
                 <p id="totalRowsCount" class="text-xl font-bold text-blue-900 mt-0.5">0</p>
               </div>
               <div class="bg-emerald-50/60 border border-emerald-100 rounded-lg p-3">
@@ -164,7 +223,7 @@
             </div>
 
             <!-- Table Preview Dropdown/Collapsible -->
-            <details class="group border border-slate-200 rounded-lg overflow-hidden">
+            <details id="previewDetailsToggle" class="group border border-slate-200 rounded-lg overflow-hidden">
               <summary class="flex items-center justify-between p-3 bg-slate-50 hover:bg-slate-100 cursor-pointer text-xs font-semibold text-slate-700 select-none">
                 <span class="flex items-center space-x-2">
                   <i data-lucide="table" class="w-4 h-4 text-slate-500"></i>
@@ -213,16 +272,16 @@
             </div>
 
             <!-- Simulation / Dry Run Mode -->
-            <!-- <div class="flex items-start space-x-3 pt-2 border-t border-slate-100">
+            <div class="flex items-start space-x-3 pt-2 border-t border-slate-100">
               <input type="checkbox" id="dryRunCheck" class="mt-0.5 h-4 w-4 text-amber-600 rounded border-slate-300 focus:ring-amber-500">
               <div>
                 <label for="dryRunCheck" class="text-xs font-semibold text-slate-800 cursor-pointer flex items-center space-x-1.5">
                   <span class="text-amber-700 font-bold">Simulation Mode (Dry Run)</span>
-                  <span class="px-1.5 py-0.2 bg-amber-100 text-amber-800 rounded text-[10px] uppercase font-bold">Safe Test</span>
+                  <span class="px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded text-[10px] uppercase font-bold">Safe Test</span>
                 </label>
                 <p class="text-xs text-slate-500">Test the entire flow, delays, and reporting without sending real emails or needing Gmail credentials.</p>
               </div>
-            </div> -->
+            </div>
           </div>
         </div>
 
@@ -285,6 +344,43 @@ LinkedIn: https://www.linkedin.com/in/himanshunarware/</textarea>
               <i data-lucide="sparkles" class="w-3.5 h-3.5 text-amber-500"></i>
               <span>Pro-tip: You can use spreadsheet tags like <code class="bg-slate-100 px-1 py-0.5 rounded text-blue-600 font-mono">&#123;&#123;Company&#125;&#125;</code> or <code class="bg-slate-100 px-1 py-0.5 rounded text-blue-600 font-mono">&#123;&#123;HR Name&#125;&#125;</code> for instant personalization.</span>
             </div>
+
+            <!-- Optional Image / Attachment Section -->
+            <div class="space-y-2 pt-3 border-t border-slate-100">
+              <div class="flex items-center justify-between">
+                <label class="block text-xs font-semibold uppercase text-slate-600 tracking-wider flex items-center space-x-1.5">
+                  <i data-lucide="paperclip" class="w-3.5 h-3.5 text-blue-600"></i>
+                  <span>Attach Image or Document (Optional)</span>
+                </label>
+                <span class="text-[11px] text-slate-400">PNG, JPG, WEBP, PDF (Max 5MB)</span>
+              </div>
+
+              <!-- Attachment Upload Drop / Select Box -->
+              <div id="imageUploadBox" class="border border-dashed border-slate-300 hover:border-blue-500 bg-slate-50/70 hover:bg-blue-50/20 rounded-xl p-3 text-center cursor-pointer transition flex items-center justify-center space-x-3">
+                <input type="file" id="imageFileInput" accept="image/*,.pdf" class="hidden">
+                <div class="w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center shrink-0">
+                  <i data-lucide="image-plus" class="w-4 h-4"></i>
+                </div>
+                <div class="text-left">
+                  <p class="text-xs font-semibold text-slate-800">Click or drag & drop image</p>
+                  <p class="text-[10px] text-slate-500">Attach resume image, portfolio graphic, or screenshot</p>
+                </div>
+              </div>
+
+              <!-- Attachment Preview Chip (Shown when file is selected) -->
+              <div id="imagePreviewChip" class="hidden flex items-center justify-between bg-blue-50/70 border border-blue-200 rounded-xl p-2.5">
+                <div class="flex items-center space-x-3 overflow-hidden">
+                  <img id="imageThumbnail" class="w-10 h-10 rounded-lg object-cover border border-blue-200 bg-white" alt="Attachment Preview">
+                  <div class="truncate">
+                    <p id="imageFileName" class="text-xs font-semibold text-slate-900 truncate">attachment.png</p>
+                    <p id="imageFileSize" class="text-[10px] text-slate-500">0 KB</p>
+                  </div>
+                </div>
+                <button type="button" id="removeImageBtn" class="p-1 rounded-lg hover:bg-blue-100 text-slate-400 hover:text-red-500 transition" title="Remove attachment">
+                  <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+              </div>
+            </div>
           </div>
 
           <!-- Preview Mode: Formatted HTML Rendering -->
@@ -296,6 +392,15 @@ LinkedIn: https://www.linkedin.com/in/himanshunarware/</textarea>
               </div>
               <div id="renderedHtmlBody" class="prose prose-sm max-w-none text-slate-800">
                 <!-- Injected via JS -->
+              </div>
+              <!-- Attached Image Preview in Email Viewer -->
+              <div id="renderedAttachmentPreview" class="hidden mt-4 pt-4 border-t border-slate-200">
+                <p class="text-xs font-semibold text-slate-600 mb-2 flex items-center space-x-1.5">
+                  <i data-lucide="paperclip" class="w-3.5 h-3.5 text-blue-600"></i>
+                  <span>Attached File:</span>
+                  <span id="renderedAttachmentName" class="text-slate-800 font-mono font-normal"></span>
+                </p>
+                <img id="renderedAttachmentImage" class="max-h-60 rounded-lg border border-slate-200 shadow-sm object-contain bg-white" alt="Email Attachment">
               </div>
             </div>
           </div>
