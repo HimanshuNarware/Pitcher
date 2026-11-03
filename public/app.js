@@ -1273,9 +1273,8 @@ const linkedinSaveCookieBtn = document.getElementById('linkedinSaveCookieBtn');
 const cookieFeedbackMsg = document.getElementById('cookieFeedbackMsg');
 
 // Scraper Inputs & Controls
-const linkedinTargetUrl = document.getElementById('linkedinTargetUrl');
-const sampleUrlProfileBtn = document.getElementById('sampleUrlProfileBtn');
-const sampleUrlCompanyBtn = document.getElementById('sampleUrlCompanyBtn');
+const presetQuerySelect = document.getElementById('presetQuerySelect');
+const linkedinSearchQuery = document.getElementById('linkedinSearchQuery');
 const linkedinPostLimit = document.getElementById('linkedinPostLimit');
 const startLinkedinScrapeBtn = document.getElementById('startLinkedinScrapeBtn');
 
@@ -1287,14 +1286,25 @@ const scrapingProgressBar = document.getElementById('scrapingProgressBar');
 // Scraper Results
 const linkedinResultsSection = document.getElementById('linkedinResultsSection');
 const resultsCountBadge = document.getElementById('resultsCountBadge');
+const emailsCountBadge = document.getElementById('emailsCountBadge');
 const resultsTargetLabel = document.getElementById('resultsTargetLabel');
+
+const sendToColdEmailBtn = document.getElementById('sendToColdEmailBtn');
+const copyEmailsBtn = document.getElementById('copyEmailsBtn');
 const exportCsvBtn = document.getElementById('exportCsvBtn');
 const exportJsonBtn = document.getElementById('exportJsonBtn');
-const copyAllPostsBtn = document.getElementById('copyAllPostsBtn');
+
+const filterAllPostsBtn = document.getElementById('filterAllPostsBtn');
+const filterWithEmailsBtn = document.getElementById('filterWithEmailsBtn');
+const countAllFilter = document.getElementById('countAllFilter');
+const countEmailsFilter = document.getElementById('countEmailsFilter');
+
 const linkedinPostsTableBody = document.getElementById('linkedinPostsTableBody');
 
 let linkedinSession = { loggedIn: false, profileName: '' };
 let currentScrapedPosts = [];
+let currentUniqueEmails = [];
+let currentTableFilter = 'all'; // 'all' or 'emails_only'
 
 // 1. View Switching (Cold Email vs LinkedIn Scraper)
 function switchMainView(view) {
@@ -1465,6 +1475,7 @@ function handleLinkedinLogout() {
         await fetchLinkedinStatus();
         linkedinResultsSection.classList.add('hidden');
         currentScrapedPosts = [];
+        currentUniqueEmails = [];
       } catch (err) {
         console.error('Logout error:', err);
       }
@@ -1472,25 +1483,25 @@ function handleLinkedinLogout() {
   });
 }
 
-// 6. Start Scraping
+// 6. Start Scraping (Hiring Searches & 24h filter)
 async function handleStartLinkedinScrape() {
   if (!linkedinSession.loggedIn) {
     showAlertModal('Authentication Required', 'Please log in to LinkedIn first using either "Open Browser to Login" or "Paste Session Cookie".', 'lock', 'bg-amber-100 text-amber-700');
     return;
   }
 
-  const targetUrl = linkedinTargetUrl.value.trim();
-  if (!targetUrl) {
-    showAlertModal('Missing URL', 'Please enter a target LinkedIn Profile URL or Company Page URL to scrape.');
-    linkedinTargetUrl.focus();
+  const query = linkedinSearchQuery.value.trim();
+  if (!query) {
+    showAlertModal('Missing Query', 'Please select or enter a hiring search query.');
+    linkedinSearchQuery.focus();
     return;
   }
 
-  const postLimit = parseInt(linkedinPostLimit.value) || 10;
+  const postLimit = parseInt(linkedinPostLimit.value) || 20;
 
   startLinkedinScrapeBtn.disabled = true;
   scrapingProgressBanner.classList.remove('hidden');
-  scrapingStatusText.textContent = `Connecting to ${targetUrl}...`;
+  scrapingStatusText.textContent = `Searching hiring posts (Past 24 Hours)...`;
   scrapingProgressCount.textContent = `0 / ${postLimit} posts`;
   scrapingProgressBar.style.width = '15%';
 
@@ -1498,7 +1509,11 @@ async function handleStartLinkedinScrape() {
     const res = await fetch('/api/linkedin/scrape', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ targetUrl, postLimit })
+      body: JSON.stringify({
+        searchQuery: query,
+        datePosted: 'past-24h',
+        postLimit
+      })
     });
 
     const data = await res.json();
@@ -1507,10 +1522,19 @@ async function handleStartLinkedinScrape() {
     }
 
     currentScrapedPosts = data.posts || [];
-    renderLinkedinPostsTable(currentScrapedPosts, data.targetUrl);
+    currentUniqueEmails = data.uniqueEmails || [];
 
     resultsCountBadge.textContent = `${currentScrapedPosts.length} Posts Scraped`;
-    resultsTargetLabel.textContent = `Source: ${data.targetUrl}`;
+    emailsCountBadge.textContent = `${currentUniqueEmails.length} Recruiter Emails Found`;
+    resultsTargetLabel.textContent = `Search: "${query}" • Filter: Past 24 Hours`;
+
+    countAllFilter.textContent = currentScrapedPosts.length;
+    const withEmailCount = currentScrapedPosts.filter(p => p.hasEmails).length;
+    countEmailsFilter.textContent = withEmailCount;
+
+    currentTableFilter = 'all';
+    applyTableFilter();
+
     linkedinResultsSection.classList.remove('hidden');
     linkedinResultsSection.scrollIntoView({ behavior: 'smooth' });
 
@@ -1522,29 +1546,62 @@ async function handleStartLinkedinScrape() {
   }
 }
 
-// 7. Render Posts Table
-function renderLinkedinPostsTable(posts, sourceUrl) {
+// 7. Filtering Posts
+function applyTableFilter() {
+  if (currentTableFilter === 'all') {
+    filterAllPostsBtn.className = 'px-3 py-1 rounded-md font-bold bg-slate-200 text-slate-800';
+    filterWithEmailsBtn.className = 'px-3 py-1 rounded-md font-semibold text-slate-600 hover:text-slate-900';
+    renderLinkedinPostsTable(currentScrapedPosts);
+  } else {
+    filterWithEmailsBtn.className = 'px-3 py-1 rounded-md font-bold bg-blue-100 text-blue-800';
+    filterAllPostsBtn.className = 'px-3 py-1 rounded-md font-semibold text-slate-600 hover:text-slate-900';
+    const filtered = currentScrapedPosts.filter(p => p.hasEmails);
+    renderLinkedinPostsTable(filtered);
+  }
+}
+
+// 8. Render Posts Table (with Extracted Email Badges)
+function renderLinkedinPostsTable(posts) {
   linkedinPostsTableBody.innerHTML = '';
 
   if (!posts || posts.length === 0) {
     linkedinPostsTableBody.innerHTML = `
       <tr>
-        <td colspan="6" class="p-6 text-center text-slate-400">
-          No posts found on this profile or recent activity page.
+        <td colspan="7" class="p-8 text-center text-slate-400">
+          <i data-lucide="inbox" class="w-8 h-8 mx-auto mb-2 text-slate-300"></i>
+          <p class="font-medium text-slate-600">No posts match this filter.</p>
+          <p class="text-xs text-slate-400 mt-0.5">Try running another search query or view all scraped posts.</p>
         </td>
       </tr>
     `;
+    lucide.createIcons();
     return;
   }
 
   posts.forEach((post, idx) => {
     const tr = document.createElement('tr');
-    tr.className = 'hover:bg-slate-50 transition align-top';
+    tr.className = `hover:bg-slate-50 transition align-top ${post.hasEmails ? 'bg-blue-50/20' : ''}`;
 
     const shortContent = post.content.length > 200
       ? post.content.slice(0, 200) + '...'
       : post.content;
     const isTruncated = post.content.length > 200;
+
+    // Build email badges HTML
+    let emailHtml = '';
+    if (post.extractedEmails && post.extractedEmails.length > 0) {
+      emailHtml = post.extractedEmails.map(em => `
+        <div class="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-md bg-blue-50 border border-blue-200 text-blue-900 font-mono text-[11px] font-semibold">
+          <i data-lucide="mail" class="w-3 h-3 text-blue-600"></i>
+          <span>${escapeHtml(em)}</span>
+          <button type="button" class="copy-single-email-btn text-blue-600 hover:text-blue-900 ml-1" data-email="${escapeHtml(em)}" title="Copy email">
+            <i data-lucide="copy" class="w-3 h-3"></i>
+          </button>
+        </div>
+      `).join('');
+    } else {
+      emailHtml = '<span class="text-slate-400 text-[11px] italic">No email found in text</span>';
+    }
 
     tr.innerHTML = `
       <td class="p-3 text-center font-mono text-slate-400 font-semibold">${idx + 1}</td>
@@ -1552,6 +1609,11 @@ function renderLinkedinPostsTable(posts, sourceUrl) {
         <div class="font-bold text-slate-900">${escapeHtml(post.authorName)}</div>
         <div class="text-[11px] text-slate-500 line-clamp-2">${escapeHtml(post.authorHeadline)}</div>
         ${post.authorUrl ? `<a href="${post.authorUrl}" target="_blank" class="text-[11px] text-blue-600 hover:underline inline-flex items-center space-x-0.5 mt-0.5"><span>View Profile</span><i data-lucide="external-link" class="w-2.5 h-2.5"></i></a>` : ''}
+      </td>
+      <td class="p-3">
+        <div class="space-y-1">
+          ${emailHtml}
+        </div>
       </td>
       <td class="p-3">
         <div class="text-slate-800 leading-relaxed font-sans text-xs whitespace-pre-line" id="post-text-${idx}">
@@ -1564,7 +1626,8 @@ function renderLinkedinPostsTable(posts, sourceUrl) {
         ` : ''}
       </td>
       <td class="p-3 whitespace-nowrap">
-        <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-700">
+        <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-50 text-emerald-800 border border-emerald-200">
+          <i data-lucide="clock" class="w-3 h-3 mr-1 text-emerald-600"></i>
           ${escapeHtml(post.timestamp)}
         </span>
       </td>
@@ -1587,9 +1650,14 @@ function renderLinkedinPostsTable(posts, sourceUrl) {
               <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
             </a>
           ` : ''}
-          <button type="button" class="copy-post-btn p-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 transition" data-idx="${idx}" title="Copy Post Text">
+          <button type="button" class="copy-post-btn p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition" data-idx="${idx}" title="Copy Post Text">
             <i data-lucide="copy" class="w-3.5 h-3.5"></i>
           </button>
+          ${post.hasEmails ? `
+            <button type="button" class="transfer-single-btn p-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 transition" data-idx="${idx}" title="Transfer this email to outreach queue">
+              <i data-lucide="send" class="w-3.5 h-3.5"></i>
+            </button>
+          ` : ''}
         </div>
       </td>
     `;
@@ -1616,7 +1684,7 @@ function renderLinkedinPostsTable(posts, sourceUrl) {
     });
   });
 
-  // Attach copy handlers
+  // Attach post text copy handlers
   document.querySelectorAll('.copy-post-btn').forEach(btn => {
     btn.addEventListener('click', async (e) => {
       const targetBtn = e.target.closest('button');
@@ -1624,13 +1692,13 @@ function renderLinkedinPostsTable(posts, sourceUrl) {
       const post = posts[idx];
       try {
         await navigator.clipboard.writeText(post.content);
-        targetBtn.classList.remove('bg-blue-50', 'text-blue-700');
+        targetBtn.classList.remove('bg-slate-100', 'text-slate-700');
         targetBtn.classList.add('bg-emerald-50', 'text-emerald-700');
         targetBtn.innerHTML = '<i data-lucide="check" class="w-3.5 h-3.5"></i>';
         lucide.createIcons();
         setTimeout(() => {
           targetBtn.classList.remove('bg-emerald-50', 'text-emerald-700');
-          targetBtn.classList.add('bg-blue-50', 'text-blue-700');
+          targetBtn.classList.add('bg-slate-100', 'text-slate-700');
           targetBtn.innerHTML = '<i data-lucide="copy" class="w-3.5 h-3.5"></i>';
           lucide.createIcons();
         }, 1500);
@@ -1638,24 +1706,110 @@ function renderLinkedinPostsTable(posts, sourceUrl) {
     });
   });
 
+  // Attach single email copy handlers
+  document.querySelectorAll('.copy-single-email-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      const targetBtn = e.target.closest('button');
+      const email = targetBtn.getAttribute('data-email');
+      try {
+        await navigator.clipboard.writeText(email);
+        targetBtn.innerHTML = '<i data-lucide="check" class="w-3 h-3 text-emerald-600"></i>';
+        lucide.createIcons();
+        setTimeout(() => {
+          targetBtn.innerHTML = '<i data-lucide="copy" class="w-3 h-3"></i>';
+          lucide.createIcons();
+        }, 1500);
+      } catch (err) {}
+    });
+  });
+
+  // Attach single post email transfer handler
+  document.querySelectorAll('.transfer-single-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const targetBtn = e.target.closest('button');
+      const idx = targetBtn.getAttribute('data-idx');
+      const post = posts[idx];
+      if (post && post.extractedEmails && post.extractedEmails.length > 0) {
+        transferEmailsToColdEmail(post.extractedEmails);
+      }
+    });
+  });
+
   lucide.createIcons();
 }
 
-// 8. Exports
+// 9. Transfer Extracted Emails to Cold Email Outreach Queue
+function transferEmailsToColdEmail(emailsToTransfer) {
+  if (!emailsToTransfer || emailsToTransfer.length === 0) {
+    showAlertModal('No Emails Found', 'There are no email addresses to transfer from these posts.');
+    return;
+  }
+
+  // Deduplicate
+  const uniqueList = Array.from(new Set(emailsToTransfer.map(e => e.trim().toLowerCase())));
+
+  // Switch to Email Sender View
+  switchMainView('email');
+
+  // Switch Step 1 Mode to Notepad
+  switchInputMode('notepad');
+
+  // Append or set emails in notepadTextarea
+  const existing = notepadTextarea.value.trim();
+  const existingLines = existing ? existing.split(/\r?\n/).map(l => l.trim()).filter(Boolean) : [];
+  const combinedSet = new Set([...existingLines, ...uniqueList]);
+  notepadTextarea.value = Array.from(combinedSet).join('\n');
+
+  // Trigger notepad input parser
+  handleNotepadInput();
+
+  showConfirmModal({
+    title: 'Recruiter Emails Transferred!',
+    message: `Transferred ${uniqueList.length} recruiter emails into your Cold Email Queue. Your email template is ready for review.`,
+    icon: 'send',
+    iconBg: 'bg-emerald-100 text-emerald-600',
+    confirmText: 'Review & Send Cold Emails',
+    showCancel: false,
+    onConfirm: () => {
+      document.getElementById('editModeContainer').scrollIntoView({ behavior: 'smooth' });
+    }
+  });
+}
+
+// 10. Copy All Extracted Emails to Clipboard
+function handleCopyAllEmails() {
+  if (!currentUniqueEmails || currentUniqueEmails.length === 0) {
+    showAlertModal('No Emails to Copy', 'No email addresses were found in the scraped posts.');
+    return;
+  }
+
+  const text = currentUniqueEmails.join('\n');
+  navigator.clipboard.writeText(text).then(() => {
+    copyEmailsBtn.innerHTML = '<i data-lucide="check" class="w-3.5 h-3.5"></i><span>Copied!</span>';
+    lucide.createIcons();
+    setTimeout(() => {
+      copyEmailsBtn.innerHTML = '<i data-lucide="clipboard" class="w-3.5 h-3.5"></i><span>Copy Emails</span>';
+      lucide.createIcons();
+    }, 2000);
+  });
+}
+
+// 11. Exports (CSV & JSON with extracted emails)
 function handleExportLinkedinCsv() {
   if (!currentScrapedPosts || currentScrapedPosts.length === 0) return;
 
-  let csv = 'ID,Author,Headline,Timestamp,Likes,Comments,PostURL,Content\n';
+  let csv = 'ID,Author,Headline,ExtractedEmails,Timestamp,Likes,Comments,PostURL,Content\n';
   currentScrapedPosts.forEach(p => {
     const esc = (t) => `"${String(t || '').replace(/"/g, '""')}"`;
-    csv += `${p.id},${esc(p.authorName)},${esc(p.authorHeadline)},${esc(p.timestamp)},${esc(p.likes)},${esc(p.comments)},${esc(p.postUrl)},${esc(p.content)}\n`;
+    const emailsStr = (p.extractedEmails || []).join('; ');
+    csv += `${p.id},${esc(p.authorName)},${esc(p.authorHeadline)},${esc(emailsStr)},${esc(p.timestamp)},${esc(p.likes)},${esc(p.comments)},${esc(p.postUrl)},${esc(p.content)}\n`;
   });
 
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `linkedin_posts_${Date.now()}.csv`;
+  a.download = `linkedin_hiring_posts_${Date.now()}.csv`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
@@ -1664,39 +1818,27 @@ function handleExportLinkedinCsv() {
 function handleExportLinkedinJson() {
   if (!currentScrapedPosts || currentScrapedPosts.length === 0) return;
 
-  const blob = new Blob([JSON.stringify(currentScrapedPosts, null, 2)], { type: 'application/json' });
+  const exportData = {
+    searchQuery: linkedinSearchQuery.value.trim(),
+    filter: 'past-24h',
+    scrapedAt: new Date().toISOString(),
+    totalPosts: currentScrapedPosts.length,
+    totalEmailsFound: currentUniqueEmails.length,
+    uniqueEmails: currentUniqueEmails,
+    posts: currentScrapedPosts
+  };
+
+  const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `linkedin_posts_${Date.now()}.json`;
+  a.download = `linkedin_hiring_posts_${Date.now()}.json`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
 }
 
-function handleCopyAllPosts() {
-  if (!currentScrapedPosts || currentScrapedPosts.length === 0) return;
-
-  let text = `=== LINKEDIN SCRAPED POSTS (${currentScrapedPosts.length}) ===\n\n`;
-  currentScrapedPosts.forEach(p => {
-    text += `[#${p.id}] Author: ${p.authorName} (${p.timestamp})\n`;
-    text += `URL: ${p.postUrl}\n`;
-    text += `Likes: ${p.likes} | Comments: ${p.comments}\n\n`;
-    text += `${p.content}\n`;
-    text += `--------------------------------------------------\n\n`;
-  });
-
-  navigator.clipboard.writeText(text).then(() => {
-    copyAllPostsBtn.innerHTML = '<i data-lucide="check" class="w-3.5 h-3.5"></i><span>Copied!</span>';
-    lucide.createIcons();
-    setTimeout(() => {
-      copyAllPostsBtn.innerHTML = '<i data-lucide="copy" class="w-3.5 h-3.5"></i><span>Copy All Text</span>';
-      lucide.createIcons();
-    }, 2000);
-  });
-}
-
-// 9. Event Listeners Setup
+// 12. Event Listeners Setup
 function setupLinkedinEventListeners() {
   viewEmailSenderBtn.addEventListener('click', () => switchMainView('email'));
   viewLinkedinScraperBtn.addEventListener('click', () => switchMainView('linkedin'));
@@ -1706,18 +1848,39 @@ function setupLinkedinEventListeners() {
   linkedinSaveCookieBtn.addEventListener('click', handleManualCookieLogin);
   linkedinLogoutBtn.addEventListener('click', handleLinkedinLogout);
 
-  sampleUrlProfileBtn.addEventListener('click', () => {
-    linkedinTargetUrl.value = 'https://www.linkedin.com/in/satyanadella/';
-  });
-
-  sampleUrlCompanyBtn.addEventListener('click', () => {
-    linkedinTargetUrl.value = 'https://www.linkedin.com/company/google/';
+  // Preset hiring queries dropdown change
+  presetQuerySelect.addEventListener('change', () => {
+    if (presetQuerySelect.value !== 'custom') {
+      linkedinSearchQuery.value = presetQuerySelect.value;
+    } else {
+      linkedinSearchQuery.value = '';
+      linkedinSearchQuery.focus();
+    }
   });
 
   startLinkedinScrapeBtn.addEventListener('click', handleStartLinkedinScrape);
+
+  // 1-Click Send All to Cold Email Queue
+  sendToColdEmailBtn.addEventListener('click', () => {
+    transferEmailsToColdEmail(currentUniqueEmails);
+  });
+
+  // Copy emails
+  copyEmailsBtn.addEventListener('click', handleCopyAllEmails);
+
+  // Filter tabs
+  filterAllPostsBtn.addEventListener('click', () => {
+    currentTableFilter = 'all';
+    applyTableFilter();
+  });
+
+  filterWithEmailsBtn.addEventListener('click', () => {
+    currentTableFilter = 'emails_only';
+    applyTableFilter();
+  });
+
   exportCsvBtn.addEventListener('click', handleExportLinkedinCsv);
   exportJsonBtn.addEventListener('click', handleExportLinkedinJson);
-  copyAllPostsBtn.addEventListener('click', handleCopyAllPosts);
 }
 
 // Kick off

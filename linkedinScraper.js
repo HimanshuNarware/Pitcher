@@ -328,21 +328,89 @@ function normalizeTargetUrl(rawUrl) {
   return url;
 }
 
-// 6. Scrape LinkedIn Posts
-async function scrapeLinkedInPosts({ targetUrl, postLimit = 10, onProgress = () => {} }) {
+// 5b. Helper: Extract valid emails (standard & obfuscated) from post text
+function extractEmailsFromText(rawText) {
+  if (!rawText || typeof rawText !== 'string') return [];
+
+  const foundEmails = new Set();
+  const standardRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/gi;
+
+  // 1. Standard RFC emails
+  const matches = rawText.match(standardRegex) || [];
+  matches.forEach(email => {
+    const clean = email.replace(/^[<(\s]+|[>).\s,;:]+$/g, '').trim().toLowerCase();
+    if (clean && !clean.endsWith('.png') && !clean.endsWith('.jpg') && !clean.endsWith('.jpeg') && !clean.endsWith('.webp')) {
+      foundEmails.add(clean);
+    }
+  });
+
+  // 2. Normalized obfuscated emails (e.g. hr [at] company [dot] com, user(at)domain.in, recruiter at tech.io)
+  const normalized = rawText
+    .replace(/\s*\[\s*at\s*\]\s*/gi, '@')
+    .replace(/\s*\(\s*at\s*\)\s*/gi, '@')
+    .replace(/\s*\[\s*@\s*\]\s*/gi, '@')
+    .replace(/\s+at\s+/gi, '@')
+    .replace(/\s*\[\s*dot\s*\]\s*/gi, '.')
+    .replace(/\s*\(\s*dot\s*\)\s*/gi, '.')
+    .replace(/\s*\[\s*\.\s*\]\s*/gi, '.')
+    .replace(/\s+dot\s+/gi, '.');
+
+  const obfMatches = normalized.match(standardRegex) || [];
+  obfMatches.forEach(email => {
+    const clean = email.replace(/^[<(\s]+|[>).\s,;:]+$/g, '').trim().toLowerCase();
+    if (clean && !clean.endsWith('.png') && !clean.endsWith('.jpg') && !clean.endsWith('.jpeg') && !clean.endsWith('.webp')) {
+      foundEmails.add(clean);
+    }
+  });
+
+  return Array.from(foundEmails);
+}
+
+// 6. Scrape LinkedIn Posts (Supports Search Queries or Target URLs, with past-24h filter)
+async function scrapeLinkedInPosts({
+  searchQuery,
+  targetUrl,
+  datePosted = 'past-24h',
+  sortBy = 'date_posted',
+  postLimit = 20,
+  onProgress = () => {}
+}) {
   const session = getStoredSession();
   if (!session || !session.cookies) {
     throw new Error('You are not logged in. Please log in to LinkedIn first before scraping.');
   }
 
-  const formattedUrl = normalizeTargetUrl(targetUrl);
-  if (!formattedUrl || !formattedUrl.includes('linkedin.com')) {
-    throw new Error('Please enter a valid LinkedIn Profile or Company Page URL.');
+  let formattedUrl = '';
+  let isSearchQuery = false;
+  const rawInput = (searchQuery || targetUrl || '').trim();
+
+  if (!rawInput) {
+    throw new Error('Please provide a hiring search query or target LinkedIn URL.');
   }
 
-  const limit = Math.min(50, Math.max(1, Number(postLimit) || 10));
+  // If input is a direct URL (e.g. profile or company page)
+  if (rawInput.startsWith('http://') || rawInput.startsWith('https://') || rawInput.includes('linkedin.com/')) {
+    formattedUrl = normalizeTargetUrl(rawInput);
+    if (!formattedUrl.includes('linkedin.com')) {
+      throw new Error('Please enter a valid LinkedIn URL.');
+    }
+  } else {
+    // Boolean search query with past-24h datePosted and sorted by latest
+    isSearchQuery = true;
+    const encodedKeywords = encodeURIComponent(rawInput);
+    formattedUrl = `https://www.linkedin.com/search/results/content/?keywords=${encodedKeywords}&datePosted=%22${datePosted}%22&sortBy=%22${sortBy}%22`;
+  }
 
-  onProgress({ stage: 'init', message: `Initializing browser with authenticated session...`, current: 0, total: limit });
+  const limit = Math.min(50, Math.max(1, Number(postLimit) || 20));
+
+  onProgress({
+    stage: 'init',
+    message: isSearchQuery
+      ? `Searching LinkedIn posts for "${rawInput}" (Past 24 Hours)...`
+      : `Navigating to ${formattedUrl}...`,
+    current: 0,
+    total: limit
+  });
 
   let browser = null;
   try {
@@ -365,7 +433,14 @@ async function scrapeLinkedInPosts({ targetUrl, postLimit = 10, onProgress = () 
     await context.addCookies(session.cookies);
     const page = await context.newPage();
 
-    onProgress({ stage: 'navigating', message: `Navigating to ${formattedUrl}...`, current: 0, total: limit });
+    onProgress({
+      stage: 'navigating',
+      message: isSearchQuery
+        ? `Opening search results (Past 24 Hours)...`
+        : `Opening ${formattedUrl}...`,
+      current: 0,
+      total: limit
+    });
 
     await page.goto(formattedUrl, {
       waitUntil: 'domcontentloaded',
@@ -516,23 +591,37 @@ async function scrapeLinkedInPosts({ targetUrl, postLimit = 10, onProgress = () 
 
     await browser.close();
 
-    const finalPosts = Array.from(postsMap.values()).slice(0, limit).map((post, idx) => ({
-      id: idx + 1,
-      authorName: post.authorName || pageAuthorName || 'Unknown Author',
-      authorHeadline: post.authorHeadline || pageAuthorHeadline || '',
-      authorUrl: post.authorUrl || formattedUrl,
-      postUrl: post.postUrl || formattedUrl,
-      content: post.content || '(No text content / media only)',
-      timestamp: post.timestamp || 'Recent',
-      likes: post.likes || '0',
-      comments: post.comments || '0',
-      scrapedAt: new Date().toISOString()
-    }));
+    const allUniqueEmails = new Set();
+
+    const finalPosts = Array.from(postsMap.values()).slice(0, limit).map((post, idx) => {
+      const extractedEmails = extractEmailsFromText(post.content);
+      extractedEmails.forEach(em => allUniqueEmails.add(em));
+
+      return {
+        id: idx + 1,
+        authorName: post.authorName || pageAuthorName || 'LinkedIn Recruiter',
+        authorHeadline: post.authorHeadline || pageAuthorHeadline || '',
+        authorUrl: post.authorUrl || formattedUrl,
+        postUrl: post.postUrl || formattedUrl,
+        content: post.content || '(No text content / media only)',
+        timestamp: post.timestamp || 'Under 24h',
+        likes: post.likes || '0',
+        comments: post.comments || '0',
+        extractedEmails,
+        hasEmails: extractedEmails.length > 0,
+        scrapedAt: new Date().toISOString()
+      };
+    });
 
     return {
       success: true,
+      query: rawInput,
+      isSearchQuery,
+      filter: datePosted,
       targetUrl: formattedUrl,
       totalScraped: finalPosts.length,
+      totalEmailsFound: allUniqueEmails.size,
+      uniqueEmails: Array.from(allUniqueEmails),
       posts: finalPosts
     };
 
@@ -548,5 +637,6 @@ module.exports = {
   cancelInteractiveLogin,
   saveManualCookie,
   clearStoredSession,
-  scrapeLinkedInPosts
+  scrapeLinkedInPosts,
+  extractEmailsFromText
 };

@@ -623,53 +623,82 @@ LinkedIn: https://www.linkedin.com/in/himanshunarware/</textarea>
         </div>
       </div>
 
-      <!-- Scraper Controls Card -->
+      <!-- Scraper Controls Card: Hiring Post & Email Search (Past 24 Hours) -->
       <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-5">
-        <div class="flex items-center justify-between">
-          <h2 class="text-base font-bold text-slate-900 flex items-center space-x-2">
-            <i data-lucide="search" class="w-5 h-5 text-blue-600"></i>
-            <span>Scrape Profile or Company Posts</span>
-          </h2>
-          <span class="text-xs text-slate-500">Extracts post text, timestamps, author details & engagement</span>
+        <div class="flex items-center justify-between flex-wrap gap-2">
+          <div>
+            <h2 class="text-base font-bold text-slate-900 flex items-center space-x-2">
+              <i data-lucide="search" class="w-5 h-5 text-blue-600"></i>
+              <span>LinkedIn Hiring Posts & Email Scraper</span>
+              <span class="text-xs px-2 py-0.5 rounded-md font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center space-x-1">
+                <i data-lucide="clock" class="w-3 h-3"></i>
+                <span>Past 24 Hours</span>
+              </span>
+            </h2>
+            <p class="text-xs text-slate-500 mt-0.5">Search active recruiter hiring posts, extract recruiter emails, and transfer them directly into your cold email queue.</p>
+          </div>
         </div>
 
-        <div class="space-y-4">
-          <!-- Target URL Input -->
+        <div class="space-y-4 pt-1">
+          <!-- Preset Hiring Search Queries Dropdown -->
           <div class="space-y-1.5">
             <div class="flex items-center justify-between">
-              <label for="linkedinTargetUrl" class="block text-xs font-semibold uppercase text-slate-600 tracking-wider">
-                Target LinkedIn Profile / Company URL
+              <label for="presetQuerySelect" class="block text-xs font-semibold uppercase text-slate-600 tracking-wider flex items-center space-x-1.5">
+                <i data-lucide="sparkles" class="w-3.5 h-3.5 text-amber-500"></i>
+                <span>Preset Hiring Queries</span>
               </label>
-              <div class="flex items-center space-x-2">
-                <button type="button" id="sampleUrlProfileBtn" class="text-[11px] text-blue-600 hover:underline font-medium">Sample Profile</button>
-                <span class="text-slate-300">•</span>
-                <button type="button" id="sampleUrlCompanyBtn" class="text-[11px] text-blue-600 hover:underline font-medium">Sample Company</button>
-              </div>
+              <span class="text-[11px] text-slate-400">Select a pre-built query or write custom Boolean search</span>
             </div>
-            <div class="relative">
-              <i data-lucide="link" class="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5"></i>
-              <input type="url" id="linkedinTargetUrl" placeholder="https://www.linkedin.com/in/username/ or https://www.linkedin.com/company/companyname/" class="w-full bg-slate-50 border border-slate-300 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-            </div>
-            <p class="text-[11px] text-slate-400">Works with profile links, activity feeds, or company pages. Accesses connection-only posts because you are authenticated.</p>
+            <select id="presetQuerySelect" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+              <option value='(hiring OR "we are hiring") (React OR MERN OR "Full Stack Developer") India' selected>🔥 (hiring OR "we are hiring") (React OR MERN OR "Full Stack Developer") India</option>
+              <option value='Full Stack Engineer (Remote)'>⚡ Full Stack Engineer (Remote)</option>
+              <option value='("urgent hiring" OR "immediate joiner" OR "looking for developers") (India OR Bengaluru OR Hyderabad OR Pune)'>🚨 ("urgent hiring" OR "immediate joiner" OR "looking for developers") (India OR Bengaluru OR Hyderabad OR Pune)</option>
+              <option value='(MERN OR "Full Stack Developer" OR "Node.js Developer" OR "Frontend") (remote) hiring India'>🌐 (MERN OR "Full Stack Developer" OR "Node.js Developer" OR "Frontend") (remote) hiring India</option>
+              <option value='("India remote" OR "remote India" OR "work from anywhere in India") (developer OR engineer) hiring'>🏡 ("India remote" OR "remote India" OR "work from anywhere in India") (developer OR engineer) hiring</option>
+              <option value='("hiring software developer" OR "hiring software engineer") India'>💼 ("hiring software developer" OR "hiring software engineer") India</option>
+              <option value='("we are hiring software developer" OR "we are hiring software engineer") India'>📢 ("we are hiring software developer" OR "we are hiring software engineer") India</option>
+              <option value='(hiring OR "we are hiring") (React OR "Frontend Developer" OR "Front End Developer") India'>💻 (hiring OR "we are hiring") (React OR "Frontend Developer" OR "Front End Developer") India</option>
+              <option value='("looking for developers" OR "immediate hiring" OR "open positions") (remote) (India OR Indian)'>🎯 ("looking for developers" OR "immediate hiring" OR "open positions") (remote) (India OR Indian)</option>
+              <option value='("hiring software developer" OR "hiring software engineer")'>🌍 ("hiring software developer" OR "hiring software engineer") (Global)</option>
+              <option value="custom">✏️ Custom Search Query or Specific Profile/Company URL...</option>
+            </select>
           </div>
 
-          <!-- Controls: Post Count & Actions -->
+          <!-- Active Search Query Textarea -->
+          <div class="space-y-1.5">
+            <label for="linkedinSearchQuery" class="block text-xs font-semibold uppercase text-slate-600 tracking-wider">
+              Search Query / Keywords
+            </label>
+            <div class="relative">
+              <textarea id="linkedinSearchQuery" rows="2" class="w-full bg-slate-50/70 border border-slate-300 rounded-xl p-3 font-mono text-xs leading-relaxed text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-y shadow-inner">(hiring OR "we are hiring") (React OR MERN OR "Full Stack Developer") India</textarea>
+            </div>
+            <p class="text-[11px] text-slate-400">Supports Boolean operators (<code class="bg-slate-100 px-1 py-0.5 rounded text-blue-600 font-mono">AND</code>, <code class="bg-slate-100 px-1 py-0.5 rounded text-blue-600 font-mono">OR</code>, <code class="bg-slate-100 px-1 py-0.5 rounded text-blue-600 font-mono">"quotes"</code>) or direct LinkedIn Profile/Company URLs.</p>
+          </div>
+
+          <!-- Controls: Filter & Post Count & Actions -->
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2 border-t border-slate-100">
             <div class="space-y-1">
-              <label for="linkedinPostLimit" class="block text-xs font-semibold text-slate-700">Number of Posts to Scrape</label>
-              <select id="linkedinPostLimit" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <option value="5">5 Recent Posts (Quick)</option>
-                <option value="10" selected>10 Recent Posts (Recommended)</option>
-                <option value="15">15 Recent Posts</option>
-                <option value="20">20 Recent Posts</option>
-                <option value="30">30 Recent Posts</option>
+              <label for="linkedinDateFilter" class="block text-xs font-semibold text-slate-700">Date Posted Filter</label>
+              <select id="linkedinDateFilter" disabled class="w-full bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-xs font-semibold text-slate-800 cursor-not-allowed">
+                <option value="past-24h" selected>Past 24 Hours (Only Fresh Posts)</option>
               </select>
             </div>
 
-            <div class="sm:col-span-2 flex items-end justify-end">
-              <button id="startLinkedinScrapeBtn" class="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition shadow-sm flex items-center justify-center space-x-2">
-                <i data-lucide="file-search" class="w-4 h-4"></i>
-                <span>Start Scraping Posts</span>
+            <div class="space-y-1">
+              <label for="linkedinPostLimit" class="block text-xs font-semibold text-slate-700">Number of Posts to Scrape</label>
+              <select id="linkedinPostLimit" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="10">10 Recent Posts (Quick)</option>
+                <option value="20" selected>20 Recent Posts (Recommended)</option>
+                <option value="25">25 Recent Posts</option>
+                <option value="30">30 Recent Posts</option>
+                <option value="50">50 Recent Posts (Deep Scan)</option>
+              </select>
+            </div>
+
+            <div class="flex items-end justify-end">
+              <button id="startLinkedinScrapeBtn" class="w-full px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition shadow-sm flex items-center justify-center space-x-2">
+                <i data-lucide="search" class="w-4 h-4"></i>
+                <span>Search & Scrape (Past 24h)</span>
               </button>
             </div>
           </div>
@@ -696,13 +725,23 @@ LinkedIn: https://www.linkedin.com/in/himanshunarware/</textarea>
           <div>
             <h2 class="text-base font-bold text-slate-900 flex items-center space-x-2">
               <i data-lucide="check-circle" class="w-5 h-5 text-emerald-600"></i>
-              <span>Scraped Posts</span>
-              <span id="resultsCountBadge" class="text-xs px-2.5 py-0.5 rounded-full font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">0 Posts</span>
+              <span>Scraped Hiring Posts</span>
+              <span id="resultsCountBadge" class="text-xs px-2.5 py-0.5 rounded-full font-bold bg-slate-100 text-slate-800 border border-slate-200">0 Posts</span>
+              <span id="emailsCountBadge" class="text-xs px-2.5 py-0.5 rounded-full font-bold bg-blue-50 text-blue-700 border border-blue-200">0 Emails Found</span>
             </h2>
             <p id="resultsTargetLabel" class="text-xs text-slate-500 mt-0.5 truncate max-w-md"></p>
           </div>
 
+          <!-- Main Actions: 1-Click Send to Cold Email Queue & Exports -->
           <div class="flex items-center space-x-2 flex-wrap gap-2">
+            <button id="sendToColdEmailBtn" class="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition flex items-center space-x-1.5" title="Transfer all extracted recruiter emails to Step 1 Cold Email Queue">
+              <i data-lucide="send" class="w-3.5 h-3.5"></i>
+              <span>Send All to Cold Email Queue</span>
+            </button>
+            <button id="copyEmailsBtn" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 transition flex items-center space-x-1.5" title="Copy all extracted emails">
+              <i data-lucide="clipboard" class="w-3.5 h-3.5"></i>
+              <span>Copy Emails</span>
+            </button>
             <button id="exportCsvBtn" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition flex items-center space-x-1.5">
               <i data-lucide="download" class="w-3.5 h-3.5"></i>
               <span>Export CSV</span>
@@ -711,11 +750,20 @@ LinkedIn: https://www.linkedin.com/in/himanshunarware/</textarea>
               <i data-lucide="file-code" class="w-3.5 h-3.5"></i>
               <span>Export JSON</span>
             </button>
-            <button id="copyAllPostsBtn" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 transition flex items-center space-x-1.5">
-              <i data-lucide="copy" class="w-3.5 h-3.5"></i>
-              <span>Copy All Text</span>
+          </div>
+        </div>
+
+        <!-- Filter Tab Buttons: All Posts vs Only Posts With Emails -->
+        <div class="flex items-center justify-between border-b border-slate-200 pb-2">
+          <div class="flex items-center space-x-2 text-xs">
+            <button type="button" id="filterAllPostsBtn" class="px-3 py-1 rounded-md font-bold bg-slate-200 text-slate-800">
+              All Scraped Posts (<span id="countAllFilter">0</span>)
+            </button>
+            <button type="button" id="filterWithEmailsBtn" class="px-3 py-1 rounded-md font-semibold text-slate-600 hover:text-slate-900">
+              With Extracted Emails (<span id="countEmailsFilter">0</span>)
             </button>
           </div>
+          <span class="text-[11px] text-slate-400">Posts published within past 24 hours</span>
         </div>
 
         <!-- Posts Table Container -->
@@ -724,10 +772,11 @@ LinkedIn: https://www.linkedin.com/in/himanshunarware/</textarea>
             <thead class="bg-slate-50 text-slate-700 font-semibold border-b border-slate-200">
               <tr>
                 <th class="p-3 w-10 text-center font-mono text-slate-400">#</th>
-                <th class="p-3 w-52">Author</th>
+                <th class="p-3 w-48">Author</th>
+                <th class="p-3 w-48">Extracted Emails</th>
                 <th class="p-3 min-w-[280px]">Post Content</th>
                 <th class="p-3 w-28 whitespace-nowrap">Time</th>
-                <th class="p-3 w-32 whitespace-nowrap">Engagement</th>
+                <th class="p-3 w-28 whitespace-nowrap">Engagement</th>
                 <th class="p-3 w-28 text-right">Actions</th>
               </tr>
             </thead>

@@ -674,13 +674,15 @@ app.post('/api/linkedin/logout', (req, res) => {
   res.json({ success: true, message: 'Logged out from LinkedIn.' });
 });
 
-// Scrape LinkedIn Posts
+// Scrape LinkedIn Posts (Hiring Search Queries or Target URLs, Past 24h filter)
 app.post('/api/linkedin/scrape', async (req, res) => {
   try {
-    const { targetUrl, postLimit = 10 } = req.body;
+    const { searchQuery, targetUrl, datePosted = 'past-24h', postLimit = 20 } = req.body;
     const result = await linkedinScraper.scrapeLinkedInPosts({
+      searchQuery,
       targetUrl,
-      postLimit: Number(postLimit) || 10,
+      datePosted,
+      postLimit: Number(postLimit) || 20,
       onProgress: (p) => {
         // Can be logged if needed
       }

@@ -20,13 +20,15 @@ A full-stack web application and automated cold emailing tool built with **Node.
   - Safe Simulation Mode (Dry Run) to test campaigns without sending real emails.
 - **Zero-Disk Storage & In-Memory Privacy**: Neither contacts nor attachments are saved to disk; all data is immediately purged from RAM upon campaign completion.
 - **Real-Time Progress & SSE Streaming**: Live status dashboard displaying queued, sent, and failed counters, animated progress bar, countdown timers, real-time activity log, and per-contact badges.
-- **LinkedIn Post Scraper (Authenticated)**:
-  - **Interactive Desktop Login**: Opens a Chrome window on your desktop to log in manually with full 2FA, OTP, and CAPTCHA support, automatically preserving the session.
+- **LinkedIn Hiring Posts & Email Scraper (Authenticated)**:
+  - **Interactive Desktop Login**: Opens an authentic Google Chrome window on your desktop to log in manually with full 2FA, OTP, and CAPTCHA support, automatically preserving session cookies.
   - **Manual Cookie Injection**: Alternative 1-click authentication by pasting the `li_at` session cookie.
   - **Private & Connection Posts Access**: Because scraping is authenticated, connection-only, follower-restricted, and private posts are fully accessible.
-  - **Profile & Company Scraping**: Extract 5 to 30 recent posts from any personal profile (`/in/username/`) or company page (`/company/name/`).
-  - **Rich Post Data**: Extracts full post text with auto-expansion of truncated text, timestamps, author headline, permalinks, and engagement counts (reactions & comments).
-  - **Data Exports**: Download scraped post feeds instantly as **CSV** or **JSON**, or copy all text to clipboard.
+  - **11 Pre-Loaded Boolean Hiring Queries**: Instant access to optimized recruiter hiring searches for React, MERN, Full Stack, Node.js, Frontend, Remote India, and Urgent Joiners.
+  - **Strict 24-Hour Freshness Filter**: Automatically appends `datePosted="past-24h"` and `sortBy="date_posted"` to fetch only hot recruiter postings from the last 24 hours.
+  - **Intelligent Recruiter Email Extraction**: Scans full post descriptions using advanced regex to extract standard emails (`name@company.com`) and obfuscated recruiter formats (`name [at] company [dot] com`, `recruiter (at) domain dot com`, `[@]`, etc.).
+  - **1-Click Transfer to Cold Email Queue**: Seamlessly transfers all deduplicated recruiter emails directly into the Email Notepad queue with automatic syntax validation and confirmation.
+  - **Feed Filtering & Exports**: Toggle between "All Scraped Posts" and "Posts with Extracted Emails", and export results to **CSV** (with `ExtractedEmails` column) or **JSON**.
 - **Exportable Reports**: One-click download of timestamped CSV execution reports with message IDs and delivery statuses.
 - **Flexible SMTP Setup**: Configure credentials via `.env` file or directly in the UI with an instant connection tester.
 
@@ -34,7 +36,7 @@ A full-stack web application and automated cold emailing tool built with **Node.
 
 ## 🔄 Application Architecture & Flowchart
 
-The following flowchart illustrates the entire lifecycle of the application—from spreadsheet upload and in-memory parsing, through the sequential anti-spam sending engine, to automatic data purging upon completion:
+The following flowchart illustrates the entire lifecycle of the application—from recruiter post scraping and in-memory contact parsing, through the sequential anti-spam sending engine, to automatic data purging upon completion:
 
 ```mermaid
 flowchart TD
@@ -48,18 +50,30 @@ flowchart TD
         C -- "Yes (via .env or Saved)" --> F
     end
 
-    %% Subgraph 2: In-Memory Ingestion
-    subgraph S2["2. Zero-Disk In-Memory Ingestion"]
-        F --> G["Drag & Drop CSV / XLSX File"]
-        G --> H["Multer reads file into RAM Buffer<br/>(ZERO files written to hard drive)"]
-        H --> I["SheetJS parses workbook in memory"]
-        I --> J["Auto-detect Email Column & Validate Emails"]
-        J --> K["UI displays preview table & valid email count"]
+    %% Subgraph 2: In-Memory Ingestion & Recruiter Scraping
+    subgraph S2["2. Contact Ingestion Modes (Zero-Disk Storage)"]
+        F --> G1["Mode A: CSV / Excel Spreadsheet<br/>Drag & drop into memory buffer"]
+        F --> G2["Mode B: Email Notepad<br/>Paste raw emails separated by newline"]
+        F --> G3["Mode C: LinkedIn 24h Hiring Scraper<br/>Select Boolean query & past 24h filter"]
+
+        G3 --> L1["Interactive Desktop Login / Cookie Verification<br/>(Full 2FA / OTP & Private Post Access)"]
+        L1 --> L2["Scrape Hiring Posts Published in Past 24 Hours<br/>(datePosted='past-24h', sortBy='date_posted')"]
+        L2 --> L3["Scan post body with regex for Recruiter Emails<br/>(Detects standard RFC + obfuscated [at], (at), [dot])"]
+        L3 --> L4["1-Click: 'Send All to Cold Email Queue'"]
+        L4 --> G2
+
+        G1 --> H1["SheetJS parses workbook in memory<br/>(Zero files written to hard drive)"]
+        H1 --> I1["Auto-detect Email Column & Validate Format"]
+        I1 --> J["Contacts ready in memory"]
+
+        G2 --> H2["Regex splits lines & validates emails<br/>(Real-time line, valid, and duplicate counts)"]
+        H2 --> J
     end
 
     %% Subgraph 3: Template & Rules
     subgraph S3["3. Template & Anti-Spam Setup"]
-        K --> L["Pre-filled Cold Email Template Loaded<br/>(Himanshu's Resume, GitHub, Portfolio, LinkedIn)"]
+        J --> K["Load Template (Auto-saved to LocalStorage)<br/>(Himanshu's Resume, GitHub, Portfolio, LinkedIn)"]
+        K --> L["Optional: Direct Image/PDF Attachment (In-Memory)"]
         L --> M["Set Anti-Spam Delay (3-5s recommended)<br/>& Toggle Duplicate Skipping"]
         M --> N["User clicks 'Start Cold Emailing'"]
     end
@@ -81,12 +95,13 @@ flowchart TD
     %% Subgraph 5: Auto-Purge & Cleanup
     subgraph S5["5. Automatic Purge & Reporting"]
         R -- "No (All Sent)" --> W["Campaign Completed!"]
-        W --> X["Server deletes all spreadsheet row data from RAM<br/>(delete it.data)"]
-        X --> Y["Browser resets file input & clears memory state"]
+        W --> X["Server deletes all contact row data & attachments from RAM<br/>(delete it.data, delete job.attachment)"]
+        X --> Y["Browser resets input & clears memory state"]
         Y --> Z["User can optionally download timestamped CSV report"]
     end
 
     style S2 fill:#eff6ff,stroke:#3b82f6,stroke-width:2px
+    style S3 fill:#fefce8,stroke:#eab308,stroke-width:2px
     style S4 fill:#f0fdf4,stroke:#22c55e,stroke-width:2px
     style S5 fill:#fef2f2,stroke:#ef4444,stroke-width:2px
 ```

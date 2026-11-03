@@ -1,6 +1,6 @@
 # Auto Cold Email Sender - Application Flowchart
 
-This document details the architectural and execution flow of the **Auto Cold Email Sender** application.
+This document details the architectural and execution flow of the **Auto Cold Email Sender** and **LinkedIn 24h Hiring Post & Email Scraper** application.
 
 ```mermaid
 flowchart TD
@@ -14,18 +14,30 @@ flowchart TD
         C -- "Yes (via .env or Saved)" --> F
     end
 
-    %% Subgraph 2: In-Memory Ingestion
-    subgraph S2["2. Zero-Disk In-Memory Ingestion"]
-        F --> G["Drag & Drop CSV / XLSX File"]
-        G --> H["Multer reads file into RAM Buffer<br/>(ZERO files written to hard drive)"]
-        H --> I["SheetJS parses workbook in memory"]
-        I --> J["Auto-detect Email Column & Validate Emails"]
-        J --> K["UI displays preview table & valid email count"]
+    %% Subgraph 2: In-Memory Ingestion & Recruiter Scraping
+    subgraph S2["2. Contact Ingestion Modes (Zero-Disk Storage)"]
+        F --> G1["Mode A: CSV / Excel Spreadsheet<br/>Drag & drop into memory buffer"]
+        F --> G2["Mode B: Email Notepad<br/>Paste raw emails separated by newline"]
+        F --> G3["Mode C: LinkedIn 24h Hiring Scraper<br/>Select Boolean query & past 24h filter"]
+
+        G3 --> L1["Interactive Desktop Login / Cookie Verification<br/>(Full 2FA / OTP & Private Post Access)"]
+        L1 --> L2["Scrape Hiring Posts Published in Past 24 Hours<br/>(datePosted='past-24h', sortBy='date_posted')"]
+        L2 --> L3["Scan post body with regex for Recruiter Emails<br/>(Detects standard RFC + obfuscated [at], (at), [dot])"]
+        L3 --> L4["1-Click: 'Send All to Cold Email Queue'"]
+        L4 --> G2
+
+        G1 --> H1["SheetJS parses workbook in memory<br/>(Zero files written to hard drive)"]
+        H1 --> I1["Auto-detect Email Column & Validate Format"]
+        I1 --> J["Contacts ready in memory"]
+
+        G2 --> H2["Regex splits lines & validates emails<br/>(Real-time line, valid, and duplicate counts)"]
+        H2 --> J
     end
 
     %% Subgraph 3: Template & Rules
     subgraph S3["3. Template & Anti-Spam Setup"]
-        K --> L["Pre-filled Cold Email Template Loaded<br/>(Himanshu's Resume, GitHub, Portfolio, LinkedIn)"]
+        J --> K["Load Template (Auto-saved to LocalStorage)<br/>(Himanshu's Resume, GitHub, Portfolio, LinkedIn)"]
+        K --> L["Optional: Direct Image/PDF Attachment (In-Memory)"]
         L --> M["Set Anti-Spam Delay (3-5s recommended)<br/>& Toggle Duplicate Skipping"]
         M --> N["User clicks 'Start Cold Emailing'"]
     end
@@ -47,12 +59,14 @@ flowchart TD
     %% Subgraph 5: Auto-Purge & Cleanup
     subgraph S5["5. Automatic Purge & Reporting"]
         R -- "No (All Sent)" --> W["Campaign Completed!"]
-        W --> X["Server deletes all spreadsheet row data from RAM<br/>(delete it.data)"]
-        X --> Y["Browser resets file input & clears memory state"]
+        W --> X["Server deletes all contact row data & attachments from RAM<br/>(delete it.data, delete job.attachment)"]
+        X --> Y["Browser resets input & clears memory state"]
         Y --> Z["User can optionally download timestamped CSV report"]
     end
 
     style S2 fill:#eff6ff,stroke:#3b82f6,stroke-width:2px
+    style S3 fill:#fefce8,stroke:#eab308,stroke-width:2px
     style S4 fill:#f0fdf4,stroke:#22c55e,stroke-width:2px
     style S5 fill:#fef2f2,stroke:#ef4444,stroke-width:2px
 ```
+
