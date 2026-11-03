@@ -624,6 +624,73 @@ app.get('/api/download-flowchart-md', (req, res) => {
   res.download(mdPath, 'FLOWCHART.md');
 });
 
+// ---------------- LINKEDIN SCRAPER APIS ---------------- //
+const linkedinScraper = require('./linkedinScraper');
+
+// Get LinkedIn Authentication Status
+app.get('/api/linkedin/status', async (req, res) => {
+  try {
+    const status = await linkedinScraper.getSessionStatus();
+    res.json(status);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Launch Interactive Browser Login Window
+app.post('/api/linkedin/login-interactive', async (req, res) => {
+  try {
+    const result = await linkedinScraper.startInteractiveLogin();
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+// Cancel Interactive Login
+app.post('/api/linkedin/login-cancel', async (req, res) => {
+  try {
+    const result = await linkedinScraper.cancelInteractiveLogin();
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Save Manual Cookie (li_at)
+app.post('/api/linkedin/save-cookie', async (req, res) => {
+  try {
+    const { liAtCookie } = req.body;
+    const result = await linkedinScraper.saveManualCookie(liAtCookie);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+// Clear LinkedIn Session / Logout
+app.post('/api/linkedin/logout', (req, res) => {
+  linkedinScraper.clearStoredSession();
+  res.json({ success: true, message: 'Logged out from LinkedIn.' });
+});
+
+// Scrape LinkedIn Posts
+app.post('/api/linkedin/scrape', async (req, res) => {
+  try {
+    const { targetUrl, postLimit = 10 } = req.body;
+    const result = await linkedinScraper.scrapeLinkedInPosts({
+      targetUrl,
+      postLimit: Number(postLimit) || 10,
+      onProgress: (p) => {
+        // Can be logged if needed
+      }
+    });
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
 // Start server
 app.listen(PORT, () => {
   console.log(`===============================================`);

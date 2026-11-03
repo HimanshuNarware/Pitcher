@@ -20,6 +20,13 @@ A full-stack web application and automated cold emailing tool built with **Node.
   - Safe Simulation Mode (Dry Run) to test campaigns without sending real emails.
 - **Zero-Disk Storage & In-Memory Privacy**: Neither contacts nor attachments are saved to disk; all data is immediately purged from RAM upon campaign completion.
 - **Real-Time Progress & SSE Streaming**: Live status dashboard displaying queued, sent, and failed counters, animated progress bar, countdown timers, real-time activity log, and per-contact badges.
+- **LinkedIn Post Scraper (Authenticated)**:
+  - **Interactive Desktop Login**: Opens a Chrome window on your desktop to log in manually with full 2FA, OTP, and CAPTCHA support, automatically preserving the session.
+  - **Manual Cookie Injection**: Alternative 1-click authentication by pasting the `li_at` session cookie.
+  - **Private & Connection Posts Access**: Because scraping is authenticated, connection-only, follower-restricted, and private posts are fully accessible.
+  - **Profile & Company Scraping**: Extract 5 to 30 recent posts from any personal profile (`/in/username/`) or company page (`/company/name/`).
+  - **Rich Post Data**: Extracts full post text with auto-expansion of truncated text, timestamps, author headline, permalinks, and engagement counts (reactions & comments).
+  - **Data Exports**: Download scraped post feeds instantly as **CSV** or **JSON**, or copy all text to clipboard.
 - **Exportable Reports**: One-click download of timestamped CSV execution reports with message IDs and delivery statuses.
 - **Flexible SMTP Setup**: Configure credentials via `.env` file or directly in the UI with an instant connection tester.
 

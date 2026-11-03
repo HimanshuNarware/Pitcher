@@ -176,7 +176,9 @@ async function init() {
   loadStoredCredentials();
   loadStoredTemplates();
   await fetchConfig();
+  await fetchLinkedinStatus();
   setupEventListeners();
+  setupLinkedinEventListeners();
   updateLiveEmailPreview();
 }
 
@@ -1238,5 +1240,486 @@ async function handleDownloadReport() {
   }
 }
 
+// ================================================================
+// LINKEDIN POST SCRAPER MODULE
+// ================================================================
+
+// Views
+const viewEmailSenderBtn = document.getElementById('viewEmailSenderBtn');
+const viewLinkedinScraperBtn = document.getElementById('viewLinkedinScraperBtn');
+const emailSenderView = document.getElementById('emailSenderView');
+const linkedinScraperView = document.getElementById('linkedinScraperView');
+
+// Header Status
+const linkedinHeaderBadge = document.getElementById('linkedinHeaderBadge');
+const linkedinHeaderDot = document.getElementById('linkedinHeaderDot');
+const linkedinHeaderStatusText = document.getElementById('linkedinHeaderStatusText');
+
+// LinkedIn Auth Controls
+const linkedinStatusPill = document.getElementById('linkedinStatusPill');
+const linkedinStatusSubtitle = document.getElementById('linkedinStatusSubtitle');
+const linkedinLoggedInActions = document.getElementById('linkedinLoggedInActions');
+const linkedinAccountName = document.getElementById('linkedinAccountName');
+const linkedinLogoutBtn = document.getElementById('linkedinLogoutBtn');
+const linkedinLoginControls = document.getElementById('linkedinLoginControls');
+
+const linkedinInteractiveLoginBtn = document.getElementById('linkedinInteractiveLoginBtn');
+const linkedinCancelLoginBtn = document.getElementById('linkedinCancelLoginBtn');
+const interactiveLoginStatus = document.getElementById('interactiveLoginStatus');
+const interactiveLoginStatusText = document.getElementById('interactiveLoginStatusText');
+
+const linkedinCookieInput = document.getElementById('linkedinCookieInput');
+const linkedinSaveCookieBtn = document.getElementById('linkedinSaveCookieBtn');
+const cookieFeedbackMsg = document.getElementById('cookieFeedbackMsg');
+
+// Scraper Inputs & Controls
+const linkedinTargetUrl = document.getElementById('linkedinTargetUrl');
+const sampleUrlProfileBtn = document.getElementById('sampleUrlProfileBtn');
+const sampleUrlCompanyBtn = document.getElementById('sampleUrlCompanyBtn');
+const linkedinPostLimit = document.getElementById('linkedinPostLimit');
+const startLinkedinScrapeBtn = document.getElementById('startLinkedinScrapeBtn');
+
+const scrapingProgressBanner = document.getElementById('scrapingProgressBanner');
+const scrapingStatusText = document.getElementById('scrapingStatusText');
+const scrapingProgressCount = document.getElementById('scrapingProgressCount');
+const scrapingProgressBar = document.getElementById('scrapingProgressBar');
+
+// Scraper Results
+const linkedinResultsSection = document.getElementById('linkedinResultsSection');
+const resultsCountBadge = document.getElementById('resultsCountBadge');
+const resultsTargetLabel = document.getElementById('resultsTargetLabel');
+const exportCsvBtn = document.getElementById('exportCsvBtn');
+const exportJsonBtn = document.getElementById('exportJsonBtn');
+const copyAllPostsBtn = document.getElementById('copyAllPostsBtn');
+const linkedinPostsTableBody = document.getElementById('linkedinPostsTableBody');
+
+let linkedinSession = { loggedIn: false, profileName: '' };
+let currentScrapedPosts = [];
+
+// 1. View Switching (Cold Email vs LinkedIn Scraper)
+function switchMainView(view) {
+  if (view === 'email') {
+    viewEmailSenderBtn.className = 'px-4 py-2 rounded-lg text-xs font-bold transition flex items-center space-x-2 bg-white text-blue-700 shadow-sm border border-slate-200/80';
+    viewLinkedinScraperBtn.className = 'px-4 py-2 rounded-lg text-xs font-medium transition flex items-center space-x-2 text-slate-600 hover:text-slate-900';
+    emailSenderView.classList.remove('hidden');
+    linkedinScraperView.classList.add('hidden');
+  } else {
+    viewLinkedinScraperBtn.className = 'px-4 py-2 rounded-lg text-xs font-bold transition flex items-center space-x-2 bg-white text-blue-700 shadow-sm border border-slate-200/80';
+    viewEmailSenderBtn.className = 'px-4 py-2 rounded-lg text-xs font-medium transition flex items-center space-x-2 text-slate-600 hover:text-slate-900';
+    emailSenderView.classList.add('hidden');
+    linkedinScraperView.classList.remove('hidden');
+    fetchLinkedinStatus();
+  }
+}
+
+// 2. Fetch LinkedIn Auth Status
+async function fetchLinkedinStatus() {
+  try {
+    const res = await fetch('/api/linkedin/status');
+    const data = await res.json();
+    linkedinSession = data;
+    updateLinkedinStatusUI(data);
+  } catch (err) {
+    console.error('Failed to fetch LinkedIn status:', err);
+  }
+}
+
+function updateLinkedinStatusUI(data) {
+  if (data.loggedIn) {
+    // Header Badge
+    linkedinHeaderDot.className = 'w-2 h-2 rounded-full bg-emerald-500';
+    linkedinHeaderStatusText.textContent = `LinkedIn: ${data.profileName || 'Connected'}`;
+    linkedinHeaderBadge.className = 'flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200';
+
+    // Status Pill
+    linkedinStatusPill.className = 'text-xs px-2.5 py-0.5 rounded-full font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center space-x-1';
+    linkedinStatusPill.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-500 inline-block mr-1"></span>Connected';
+    linkedinStatusSubtitle.textContent = `Authenticated as ${data.profileName || 'Active Session'}. Public and private/connection posts accessible.`;
+
+    // Controls
+    linkedinLoggedInActions.classList.remove('hidden');
+    linkedinAccountName.textContent = data.profileName || 'Active Session';
+    linkedinLoginControls.classList.add('hidden');
+  } else {
+    // Header Badge
+    linkedinHeaderDot.className = 'w-2 h-2 rounded-full bg-slate-400';
+    linkedinHeaderStatusText.textContent = 'LinkedIn: Not Logged In';
+    linkedinHeaderBadge.className = 'flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200';
+
+    // Status Pill
+    linkedinStatusPill.className = 'text-xs px-2.5 py-0.5 rounded-full font-medium bg-amber-50 text-amber-700 border border-amber-200';
+    linkedinStatusPill.textContent = 'Not Logged In';
+    linkedinStatusSubtitle.textContent = 'Log in once to access both public and connection/private posts securely';
+
+    // Controls
+    linkedinLoggedInActions.classList.add('hidden');
+    linkedinLoginControls.classList.remove('hidden');
+  }
+}
+
+// 3. Interactive Browser Login
+async function handleInteractiveLogin() {
+  linkedinInteractiveLoginBtn.disabled = true;
+  interactiveLoginStatus.classList.remove('hidden');
+  linkedinCancelLoginBtn.classList.remove('hidden');
+  interactiveLoginStatusText.textContent = 'Opening browser on your desktop... Please log in (2FA/OTP supported)';
+
+  try {
+    const res = await fetch('/api/linkedin/login-interactive', { method: 'POST' });
+    const data = await res.json();
+
+    if (data.success) {
+      showConfirmModal({
+        title: 'LinkedIn Authenticated!',
+        message: data.message || `Successfully logged in as ${data.profileName}!`,
+        icon: 'check-circle',
+        iconBg: 'bg-emerald-100 text-emerald-600',
+        confirmText: 'Great, Let\'s Scrape',
+        showCancel: false,
+        onConfirm: () => {}
+      });
+      await fetchLinkedinStatus();
+    } else {
+      showAlertModal('Login Cancelled / Incomplete', data.message || 'Interactive login was not completed.');
+    }
+  } catch (err) {
+    showAlertModal('Interactive Login Error', err.message);
+  } finally {
+    linkedinInteractiveLoginBtn.disabled = false;
+    interactiveLoginStatus.classList.add('hidden');
+    linkedinCancelLoginBtn.classList.add('hidden');
+  }
+}
+
+async function handleCancelInteractiveLogin() {
+  try {
+    await fetch('/api/linkedin/login-cancel', { method: 'POST' });
+    interactiveLoginStatus.classList.add('hidden');
+    linkedinCancelLoginBtn.classList.add('hidden');
+    linkedinInteractiveLoginBtn.disabled = false;
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+// 4. Manual Cookie (li_at) Login
+async function handleManualCookieLogin() {
+  const cookieVal = linkedinCookieInput.value.trim();
+  if (!cookieVal) {
+    showAlertModal('Missing Cookie', 'Please paste your li_at session cookie string from LinkedIn.');
+    return;
+  }
+
+  linkedinSaveCookieBtn.disabled = true;
+  linkedinSaveCookieBtn.innerHTML = `
+    <span class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+    <span>Verifying...</span>
+  `;
+  cookieFeedbackMsg.classList.add('hidden');
+
+  try {
+    const res = await fetch('/api/linkedin/save-cookie', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ liAtCookie: cookieVal })
+    });
+    const data = await res.json();
+
+    if (data.success) {
+      cookieFeedbackMsg.className = 'p-2 rounded-lg text-xs bg-emerald-50 text-emerald-800 border border-emerald-200';
+      cookieFeedbackMsg.textContent = data.message;
+      cookieFeedbackMsg.classList.remove('hidden');
+      linkedinCookieInput.value = '';
+      await fetchLinkedinStatus();
+    } else {
+      cookieFeedbackMsg.className = 'p-2 rounded-lg text-xs bg-red-50 text-red-800 border border-red-200';
+      cookieFeedbackMsg.textContent = data.error || 'Failed to authenticate cookie.';
+      cookieFeedbackMsg.classList.remove('hidden');
+    }
+  } catch (err) {
+    cookieFeedbackMsg.className = 'p-2 rounded-lg text-xs bg-red-50 text-red-800 border border-red-200';
+    cookieFeedbackMsg.textContent = err.message;
+    cookieFeedbackMsg.classList.remove('hidden');
+  } finally {
+    linkedinSaveCookieBtn.disabled = false;
+    linkedinSaveCookieBtn.innerHTML = `
+      <i data-lucide="key" class="w-3.5 h-3.5"></i>
+      <span>Connect</span>
+    `;
+    lucide.createIcons();
+  }
+}
+
+// 5. Logout
+function handleLinkedinLogout() {
+  showConfirmModal({
+    title: 'Log out of LinkedIn?',
+    message: 'This will remove your stored session cookies. You can log back in at any time.',
+    icon: 'log-out',
+    iconBg: 'bg-red-100 text-red-600',
+    confirmText: 'Log Out',
+    confirmBtnClass: 'bg-red-600 hover:bg-red-700 text-white',
+    onConfirm: async () => {
+      try {
+        await fetch('/api/linkedin/logout', { method: 'POST' });
+        await fetchLinkedinStatus();
+        linkedinResultsSection.classList.add('hidden');
+        currentScrapedPosts = [];
+      } catch (err) {
+        console.error('Logout error:', err);
+      }
+    }
+  });
+}
+
+// 6. Start Scraping
+async function handleStartLinkedinScrape() {
+  if (!linkedinSession.loggedIn) {
+    showAlertModal('Authentication Required', 'Please log in to LinkedIn first using either "Open Browser to Login" or "Paste Session Cookie".', 'lock', 'bg-amber-100 text-amber-700');
+    return;
+  }
+
+  const targetUrl = linkedinTargetUrl.value.trim();
+  if (!targetUrl) {
+    showAlertModal('Missing URL', 'Please enter a target LinkedIn Profile URL or Company Page URL to scrape.');
+    linkedinTargetUrl.focus();
+    return;
+  }
+
+  const postLimit = parseInt(linkedinPostLimit.value) || 10;
+
+  startLinkedinScrapeBtn.disabled = true;
+  scrapingProgressBanner.classList.remove('hidden');
+  scrapingStatusText.textContent = `Connecting to ${targetUrl}...`;
+  scrapingProgressCount.textContent = `0 / ${postLimit} posts`;
+  scrapingProgressBar.style.width = '15%';
+
+  try {
+    const res = await fetch('/api/linkedin/scrape', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ targetUrl, postLimit })
+    });
+
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      throw new Error(data.error || 'Failed to scrape posts from LinkedIn');
+    }
+
+    currentScrapedPosts = data.posts || [];
+    renderLinkedinPostsTable(currentScrapedPosts, data.targetUrl);
+
+    resultsCountBadge.textContent = `${currentScrapedPosts.length} Posts Scraped`;
+    resultsTargetLabel.textContent = `Source: ${data.targetUrl}`;
+    linkedinResultsSection.classList.remove('hidden');
+    linkedinResultsSection.scrollIntoView({ behavior: 'smooth' });
+
+  } catch (err) {
+    showAlertModal('Scraping Error', err.message);
+  } finally {
+    startLinkedinScrapeBtn.disabled = false;
+    scrapingProgressBanner.classList.add('hidden');
+  }
+}
+
+// 7. Render Posts Table
+function renderLinkedinPostsTable(posts, sourceUrl) {
+  linkedinPostsTableBody.innerHTML = '';
+
+  if (!posts || posts.length === 0) {
+    linkedinPostsTableBody.innerHTML = `
+      <tr>
+        <td colspan="6" class="p-6 text-center text-slate-400">
+          No posts found on this profile or recent activity page.
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  posts.forEach((post, idx) => {
+    const tr = document.createElement('tr');
+    tr.className = 'hover:bg-slate-50 transition align-top';
+
+    const shortContent = post.content.length > 200
+      ? post.content.slice(0, 200) + '...'
+      : post.content;
+    const isTruncated = post.content.length > 200;
+
+    tr.innerHTML = `
+      <td class="p-3 text-center font-mono text-slate-400 font-semibold">${idx + 1}</td>
+      <td class="p-3">
+        <div class="font-bold text-slate-900">${escapeHtml(post.authorName)}</div>
+        <div class="text-[11px] text-slate-500 line-clamp-2">${escapeHtml(post.authorHeadline)}</div>
+        ${post.authorUrl ? `<a href="${post.authorUrl}" target="_blank" class="text-[11px] text-blue-600 hover:underline inline-flex items-center space-x-0.5 mt-0.5"><span>View Profile</span><i data-lucide="external-link" class="w-2.5 h-2.5"></i></a>` : ''}
+      </td>
+      <td class="p-3">
+        <div class="text-slate-800 leading-relaxed font-sans text-xs whitespace-pre-line" id="post-text-${idx}">
+          ${escapeHtml(shortContent)}
+        </div>
+        ${isTruncated ? `
+          <button type="button" class="mt-1 text-[11px] text-blue-600 hover:text-blue-800 font-medium expand-toggle-btn" data-idx="${idx}">
+            Show full post (${post.content.length} chars)
+          </button>
+        ` : ''}
+      </td>
+      <td class="p-3 whitespace-nowrap">
+        <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-700">
+          ${escapeHtml(post.timestamp)}
+        </span>
+      </td>
+      <td class="p-3 whitespace-nowrap">
+        <div class="space-y-0.5 text-[11px] text-slate-600">
+          <div class="flex items-center space-x-1">
+            <span class="text-blue-600 font-bold">👍</span>
+            <span>${escapeHtml(post.likes)} reactions</span>
+          </div>
+          <div class="flex items-center space-x-1 text-slate-500">
+            <span>💬</span>
+            <span>${escapeHtml(post.comments)} comments</span>
+          </div>
+        </div>
+      </td>
+      <td class="p-3 text-right whitespace-nowrap">
+        <div class="flex items-center justify-end space-x-1.5">
+          ${post.postUrl ? `
+            <a href="${post.postUrl}" target="_blank" class="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition" title="Open Post on LinkedIn">
+              <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+            </a>
+          ` : ''}
+          <button type="button" class="copy-post-btn p-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 transition" data-idx="${idx}" title="Copy Post Text">
+            <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
+      </td>
+    `;
+
+    linkedinPostsTableBody.appendChild(tr);
+  });
+
+  // Attach expand handlers
+  document.querySelectorAll('.expand-toggle-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const idx = e.target.getAttribute('data-idx');
+      const textDiv = document.getElementById(`post-text-${idx}`);
+      const isExpanded = e.target.getAttribute('data-expanded') === 'true';
+
+      if (isExpanded) {
+        textDiv.textContent = posts[idx].content.slice(0, 200) + '...';
+        e.target.textContent = `Show full post (${posts[idx].content.length} chars)`;
+        e.target.setAttribute('data-expanded', 'false');
+      } else {
+        textDiv.textContent = posts[idx].content;
+        e.target.textContent = 'Show less';
+        e.target.setAttribute('data-expanded', 'true');
+      }
+    });
+  });
+
+  // Attach copy handlers
+  document.querySelectorAll('.copy-post-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      const targetBtn = e.target.closest('button');
+      const idx = targetBtn.getAttribute('data-idx');
+      const post = posts[idx];
+      try {
+        await navigator.clipboard.writeText(post.content);
+        targetBtn.classList.remove('bg-blue-50', 'text-blue-700');
+        targetBtn.classList.add('bg-emerald-50', 'text-emerald-700');
+        targetBtn.innerHTML = '<i data-lucide="check" class="w-3.5 h-3.5"></i>';
+        lucide.createIcons();
+        setTimeout(() => {
+          targetBtn.classList.remove('bg-emerald-50', 'text-emerald-700');
+          targetBtn.classList.add('bg-blue-50', 'text-blue-700');
+          targetBtn.innerHTML = '<i data-lucide="copy" class="w-3.5 h-3.5"></i>';
+          lucide.createIcons();
+        }, 1500);
+      } catch (err) {}
+    });
+  });
+
+  lucide.createIcons();
+}
+
+// 8. Exports
+function handleExportLinkedinCsv() {
+  if (!currentScrapedPosts || currentScrapedPosts.length === 0) return;
+
+  let csv = 'ID,Author,Headline,Timestamp,Likes,Comments,PostURL,Content\n';
+  currentScrapedPosts.forEach(p => {
+    const esc = (t) => `"${String(t || '').replace(/"/g, '""')}"`;
+    csv += `${p.id},${esc(p.authorName)},${esc(p.authorHeadline)},${esc(p.timestamp)},${esc(p.likes)},${esc(p.comments)},${esc(p.postUrl)},${esc(p.content)}\n`;
+  });
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `linkedin_posts_${Date.now()}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+function handleExportLinkedinJson() {
+  if (!currentScrapedPosts || currentScrapedPosts.length === 0) return;
+
+  const blob = new Blob([JSON.stringify(currentScrapedPosts, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `linkedin_posts_${Date.now()}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+function handleCopyAllPosts() {
+  if (!currentScrapedPosts || currentScrapedPosts.length === 0) return;
+
+  let text = `=== LINKEDIN SCRAPED POSTS (${currentScrapedPosts.length}) ===\n\n`;
+  currentScrapedPosts.forEach(p => {
+    text += `[#${p.id}] Author: ${p.authorName} (${p.timestamp})\n`;
+    text += `URL: ${p.postUrl}\n`;
+    text += `Likes: ${p.likes} | Comments: ${p.comments}\n\n`;
+    text += `${p.content}\n`;
+    text += `--------------------------------------------------\n\n`;
+  });
+
+  navigator.clipboard.writeText(text).then(() => {
+    copyAllPostsBtn.innerHTML = '<i data-lucide="check" class="w-3.5 h-3.5"></i><span>Copied!</span>';
+    lucide.createIcons();
+    setTimeout(() => {
+      copyAllPostsBtn.innerHTML = '<i data-lucide="copy" class="w-3.5 h-3.5"></i><span>Copy All Text</span>';
+      lucide.createIcons();
+    }, 2000);
+  });
+}
+
+// 9. Event Listeners Setup
+function setupLinkedinEventListeners() {
+  viewEmailSenderBtn.addEventListener('click', () => switchMainView('email'));
+  viewLinkedinScraperBtn.addEventListener('click', () => switchMainView('linkedin'));
+
+  linkedinInteractiveLoginBtn.addEventListener('click', handleInteractiveLogin);
+  linkedinCancelLoginBtn.addEventListener('click', handleCancelInteractiveLogin);
+  linkedinSaveCookieBtn.addEventListener('click', handleManualCookieLogin);
+  linkedinLogoutBtn.addEventListener('click', handleLinkedinLogout);
+
+  sampleUrlProfileBtn.addEventListener('click', () => {
+    linkedinTargetUrl.value = 'https://www.linkedin.com/in/satyanadella/';
+  });
+
+  sampleUrlCompanyBtn.addEventListener('click', () => {
+    linkedinTargetUrl.value = 'https://www.linkedin.com/company/google/';
+  });
+
+  startLinkedinScrapeBtn.addEventListener('click', handleStartLinkedinScrape);
+  exportCsvBtn.addEventListener('click', handleExportLinkedinCsv);
+  exportJsonBtn.addEventListener('click', handleExportLinkedinJson);
+  copyAllPostsBtn.addEventListener('click', handleCopyAllPosts);
+}
+
 // Kick off
 init();
+
